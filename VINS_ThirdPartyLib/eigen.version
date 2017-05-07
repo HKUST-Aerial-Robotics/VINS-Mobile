@@ -1,0 +1,10 @@
+eigen: stable 3.3.3 (bottled), HEAD
+C++ template library for linear algebra
+https://eigen.tuxfamily.org/
+/usr/local/Cellar/eigen/3.3.0 (484 files, 6.5MB) *
+  Poured from bottle on 2016-12-05 at 21:42:28
+From: https://github.com/Homebrew/homebrew-core/blob/master/Formula/eigen.rb
+==> Dependencies
+Build: cmake
+
+TODO: Consider cocoapods or other dependency management

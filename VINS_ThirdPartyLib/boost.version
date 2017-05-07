@@ -1,0 +1,19 @@
+boost: stable 1.63.0 (bottled), HEAD
+Collection of portable C++ source libraries
+https://www.boost.org/
+/usr/local/Cellar/boost/1.63.0 (12,491 files, 397.8MB) *
+  Poured from bottle on 2017-03-05 at 01:08:22
+From: https://github.com/Homebrew/homebrew-core/blob/master/Formula/boost.rb
+==> Dependencies
+Optional: icu4c
+==> Options
+--c++11
+	Build using C++11 mode
+--with-icu4c
+	Build regexp engine with icu support
+--without-single
+	Disable building single-threading variant
+--without-static
+	Disable building static library variant
+--HEAD
+	Install HEAD version
