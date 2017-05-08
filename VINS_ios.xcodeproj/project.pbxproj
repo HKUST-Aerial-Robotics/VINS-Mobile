@@ -26,7 +26,6 @@
 		8A4DD02C1E6C1442009FCC78 /* loop_closure_factor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22203B61E68161D00B48629 /* loop_closure_factor.cpp */; };
 		8A4DD02E1E6C14E2009FCC78 /* brief_pattern.yml in Resources */ = {isa = PBXBuildFile; fileRef = C22203B11E680C6600B48629 /* brief_pattern.yml */; };
 		8AA6E0341E768D2B002DCA4A /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8AA6E0331E768D2B002DCA4A /* Metal.framework */; };
-		8AB3747F1E6BA37400C1E398 /* VINS-ios-framework.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AB3747D1E6BA37400C1E398 /* VINS-ios-framework.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8AB374841E6BA37B00C1E398 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2FCEA931DE6B2BE001682A2 /* CoreMotion.framework */; };
 		8AB374851E6BA37E00C1E398 /* GLKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2EEEC5A1DD5CE9200F082DB /* GLKit.framework */; };
 		8AB374861E6BA38100C1E398 /* OpenGLES.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2EEEC581DD5BBF900F082DB /* OpenGLES.framework */; };
@@ -53,14 +52,8 @@
 		8AB374A31E6BA39F00C1E398 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C2B537431DB6491D00E235BC /* AppDelegate.m */; };
 		8AB374A41E6BA39F00C1E398 /* ViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = C2B537461DB6491D00E235BC /* ViewController.mm */; };
 		8AB374A51E6BA39F00C1E398 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C2B537401DB6491D00E235BC /* main.m */; };
-		8AB374DF1E6BB02800C1E398 /* VINSFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AB374DD1E6BB02800C1E398 /* VINSFramework.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		8AB374E01E6BB02800C1E398 /* VINSFramework.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8AB374DE1E6BB02800C1E398 /* VINSFramework.mm */; };
 		8AB374E11E6BC75300C1E398 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C2B5374E1DB6491D00E235BC /* Assets.xcassets */; };
 		8AB374E21E6BC76400C1E398 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = C2B537481DB6491D00E235BC /* Main.storyboard */; };
-		8AB374E51E6BD0EE00C1E398 /* CameraViewUnityBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AB374E31E6BD0EE00C1E398 /* CameraViewUnityBridge.h */; };
-		8AB374E61E6BD0EE00C1E398 /* CameraViewUnityBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8AB374E41E6BD0EE00C1E398 /* CameraViewUnityBridge.mm */; };
-		8AB374E91E6BF9D100C1E398 /* VINSUnityAPI.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8AB374E71E6BF9D100C1E398 /* VINSUnityAPI.mm */; };
-		8AB374EA1E6BF9D100C1E398 /* VINSUnityAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AB374E81E6BF9D100C1E398 /* VINSUnityAPI.h */; };
 		8AE0E4631E7E5C7B0082912B /* CameraUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AE0E4611E7E5C7B0082912B /* CameraUtils.h */; };
 		8AE0E4641E7E5C7B0082912B /* CameraUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0E4621E7E5C7B0082912B /* CameraUtils.m */; };
 		8AE0E4651E7E5C7B0082912B /* CameraUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0E4621E7E5C7B0082912B /* CameraUtils.m */; };
@@ -145,14 +138,6 @@
 		8A2B70861E7932F100466A07 /* brief_k10L6.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; name = brief_k10L6.bin; path = Resources/brief_k10L6.bin; sourceTree = SOURCE_ROOT; };
 		8AA6E0331E768D2B002DCA4A /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		8AB3747B1E6BA37400C1E398 /* VINS-ios-framework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = "VINS-ios-framework.framework"; sourceTree = BUILT_PRODUCTS_DIR; };
-		8AB3747D1E6BA37400C1E398 /* VINS-ios-framework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "VINS-ios-framework.h"; sourceTree = "<group>"; };
-		8AB3747E1E6BA37400C1E398 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		8AB374DD1E6BB02800C1E398 /* VINSFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VINSFramework.h; sourceTree = "<group>"; };
-		8AB374DE1E6BB02800C1E398 /* VINSFramework.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VINSFramework.mm; sourceTree = "<group>"; };
-		8AB374E31E6BD0EE00C1E398 /* CameraViewUnityBridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CameraViewUnityBridge.h; sourceTree = "<group>"; };
-		8AB374E41E6BD0EE00C1E398 /* CameraViewUnityBridge.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = CameraViewUnityBridge.mm; sourceTree = "<group>"; };
-		8AB374E71E6BF9D100C1E398 /* VINSUnityAPI.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VINSUnityAPI.mm; sourceTree = "<group>"; };
-		8AB374E81E6BF9D100C1E398 /* VINSUnityAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VINSUnityAPI.h; sourceTree = "<group>"; };
 		8AE0E4611E7E5C7B0082912B /* CameraUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CameraUtils.h; sourceTree = "<group>"; };
 		8AE0E4621E7E5C7B0082912B /* CameraUtils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CameraUtils.m; sourceTree = "<group>"; };
 		8AEB6B3F1E77C0FA00F9F3EE /* VocabularyBinary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = VocabularyBinary.cpp; path = loop/VocabularyBinary.cpp; sourceTree = "<group>"; };
@@ -329,21 +314,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		8AB3747C1E6BA37400C1E398 /* VINS-ios-framework */ = {
-			isa = PBXGroup;
-			children = (
-				8AB3747D1E6BA37400C1E398 /* VINS-ios-framework.h */,
-				8AB3747E1E6BA37400C1E398 /* Info.plist */,
-				8AB374DD1E6BB02800C1E398 /* VINSFramework.h */,
-				8AB374DE1E6BB02800C1E398 /* VINSFramework.mm */,
-				8AB374E31E6BD0EE00C1E398 /* CameraViewUnityBridge.h */,
-				8AB374E41E6BD0EE00C1E398 /* CameraViewUnityBridge.mm */,
-				8AB374E71E6BF9D100C1E398 /* VINSUnityAPI.mm */,
-				8AB374E81E6BF9D100C1E398 /* VINSUnityAPI.h */,
-			);
-			path = "VINS-ios-framework";
-			sourceTree = "<group>";
-		};
 		C22203201E66E04800B48629 /* ThirdParty */ = {
 			isa = PBXGroup;
 			children = (
@@ -470,7 +440,6 @@
 				C2B5373E1DB6491D00E235BC /* VINS_ios */,
 				C2B5375B1DB6491D00E235BC /* VINS_iosTests */,
 				C2B537661DB6491D00E235BC /* VINS_iosUITests */,
-				8AB3747C1E6BA37400C1E398 /* VINS-ios-framework */,
 				C2B5373D1DB6491D00E235BC /* Products */,
 				C2B537751DB64A7000E235BC /* Frameworks */,
 			);
@@ -612,12 +581,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8AB3747F1E6BA37400C1E398 /* VINS-ios-framework.h in Headers */,
-				8AB374E51E6BD0EE00C1E398 /* CameraViewUnityBridge.h in Headers */,
 				8AEB6B431E77C0FA00F9F3EE /* VocabularyBinary.hpp in Headers */,
 				8AE0E4631E7E5C7B0082912B /* CameraUtils.h in Headers */,
-				8AB374DF1E6BB02800C1E398 /* VINSFramework.h in Headers */,
-				8AB374EA1E6BF9D100C1E398 /* VINSUnityAPI.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -800,7 +765,6 @@
 				8A4DD0071E6C13DA009FCC78 /* FeatureVector.cpp in Sources */,
 				8AEB6B421E77C0FA00F9F3EE /* VocabularyBinary.cpp in Sources */,
 				8A4DD0291E6C1442009FCC78 /* marginalization_factor.cpp in Sources */,
-				8AB374E01E6BB02800C1E398 /* VINSFramework.mm in Sources */,
 				8AB374A31E6BA39F00C1E398 /* AppDelegate.m in Sources */,
 				8AB374A41E6BA39F00C1E398 /* ViewController.mm in Sources */,
 				8AB374A51E6BA39F00C1E398 /* main.m in Sources */,
@@ -816,12 +780,10 @@
 				8AB374971E6BA39700C1E398 /* utility.cpp in Sources */,
 				8AB374981E6BA39700C1E398 /* VINS.cpp in Sources */,
 				8AB374991E6BA39700C1E398 /* pose_local_parameterization.cpp in Sources */,
-				8AB374E61E6BD0EE00C1E398 /* CameraViewUnityBridge.mm in Sources */,
 				8A4DD0051E6C13DA009FCC78 /* BowVector.cpp in Sources */,
 				8A4DD0231E6C1401009FCC78 /* keyframe.cpp in Sources */,
 				8A4DD0091E6C13DA009FCC78 /* ScoringObject.cpp in Sources */,
 				8A4DD0081E6C13DA009FCC78 /* QueryResults.cpp in Sources */,
-				8AB374E91E6BF9D100C1E398 /* VINSUnityAPI.mm in Sources */,
 				8AB3749E1E6BA39700C1E398 /* feature_manager.cpp in Sources */,
 				8A4DD0121E6C13ED009FCC78 /* BRIEF.cpp in Sources */,
 				8A4DD0201E6C13FB009FCC78 /* Random.cpp in Sources */,

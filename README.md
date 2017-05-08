@@ -3,7 +3,7 @@
 
 VINS-Mobile is a real-time monocular visual-inertial state estimator developed by members of the [HKUST Aerial Robotics Group](http://uav.ust.hk/). It runs on compatible iOS devices, and provides localization services for augmented reality (AR) applications. It is also tested for state estimation and feedback control for autonomous drones. VINS-Mobile uses sliding window optimization-based formulation for providing high-accuracy visual-inertial odometry with automatic initialization and failure recovery. The accumulated odometry errors are corrected in real-time using global pose graph SLAM. An AR demonstration is provided to showcase its capability.
 
-**Authors:** Peiliang LI, Tong QIN, Zhenfei YANG, Kejie QIU, and [Shaojie SHEN](http://www.ece.ust.hk/ece.php/profile/facultydetail/eeshaojie) from the [HKUST Aerial Robotics Group](http://uav.ust.hk/)
+**Authors:** [Peiliang LI](https://github.com/PeiliangLi), [Tong QIN](https://github.com/qintony), [Zhenfei YANG](https://github.com/dvorak0), Kejie QIU, and [Shaojie SHEN](http://www.ece.ust.hk/ece.php/profile/facultydetail/eeshaojie) from the [HKUST Aerial Robotics Group](http://uav.ust.hk/)
 
 **Videos:** https://www.youtube.com/watch?v=qazzGT84Scc&feature=youtu.be
 
@@ -20,28 +20,27 @@ The code has been compiled on macOS Sierra with Xcode 8.3.1 and tested with iOS 
 
 1.1 Install boost for macOS
 ```
-	$ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-	$ brew install boost
+$ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+$ brew install boost
 ```
-1.2 Download specific **opencv2.framework** from [here](https://www.dropbox.com/sh/r28gjnue98ro1fa/AACiEH-HUdZxU4852_AytAPPa?dl=0)
 
-1.3 Copy the **opencv2.framework** to **VINS_ThirdPartyLib/opencv2.framework**
+1.2 Download specific **opencv2.framework** from [here](http://uav.ust.hk/storage/opencv2.framework.zip) then unzip it to VINS_ThirdPartyLib/opencv2.framework
 
-1.4 In your Xcode, select **Product**-> **Scheme**-> **Edit Scheme**-> **Run**-> **Info**, set **Build Configuration** to **Release**
+1.3 In your Xcode, select **Product**-> **Scheme**-> **Edit Scheme**-> **Run**-> **Info**, set **Build Configuration** to **Release**
 
-1.5 Build and Run
+1.4 Build and Run
 
-1.6 Compatible Devices
+1.5 Compatible Devices
 
-	iPhone7 Plus, iPhone7, iPhone6s Plus, iPhone6s
-	
+iPhone7 Plus, iPhone7, iPhone6s Plus, iPhone6s
+
 If you use it with non-plus devices, you may need to modify the UI size at Main.storyboard for adapting with your screen.
 
 ## 2. Acknowledgements
 
 We use [ceres solver](http://ceres-solver.org/) for non-linear optimization and [DBow](https://github.com/dorian3d/DBoW2) for loop detection.
 
-Thanks [Yang Liu](https://github.com/wandermyz) to contribute to this code.
+Thanks the contributions of [Yang Liu](https://github.com/wandermyz) and [Botao Hu](http://amber.botao.hu/) from [Amber Garage](https://ambergarage.com/).
 
 ## 3. Licence
 
