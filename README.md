@@ -29,7 +29,7 @@ $ brew install boost
 
 1.3 In your Xcode, select **Product**-> **Scheme**-> **Edit Scheme**-> **Run**-> **Info**, set **Build Configuration** to **Release**
 
-1.4 *Slect your device at upper left corner, then choose your device size at Main.storyboard,* build and run
+1.4 **Slect your device at upper left corner, then choose your device size at Main.storyboard,** build and run
 
 1.5 Compatible Devices and iOS version requiements
 
