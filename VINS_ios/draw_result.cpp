@@ -30,6 +30,7 @@ DrawResult::DrawResult(float _pitch, float _roll, float _yaw, float _Tx, float _
     Y0 = HEIGHT/2;
     Y0AR = HEIGHT/2;
     tapFlag = false;
+    longPressFlag = false;
     KF_init = false;
     change_color = false;
     trajectory_color.push_back(Scalar(255, 0, 0));
@@ -500,6 +501,77 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         if ( Grounds[i].boxflag)
             drawBox(result, Grounds[i].ori, Grounds[i].cox, Grounds[i].coy, Grounds[i].coz, Grounds[i].size, P_latest, R_latest, true);
     }
+    ////////////////////////////// translation response
+    /////////////////////////// follow mode translation response
+    if ( locationX != locationX_p or locationY != locationY_p )
+    {
+        float xx=480 - locationY -1;
+        float yy= locationX;
+        float cx=240;
+        float cy=320;
+        Vector3f box_center, Pc;
+        Vector2f box_center_xy, center_input;
+        center_input<< xx, yy;
+        
+        float distance, dis_min;
+        unsigned int dis_min_idx;
+        dis_min= 100000;
+        for (unsigned int i =0; i< Grounds.size(); i++)
+        {
+            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
+            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
+            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            distance = (box_center_xy - center_input).norm();
+            if (distance < dis_min)
+            {
+                dis_min = distance;
+                dis_min_idx = i;
+            }
+        }
+        
+        
+        if ( dis_min < 120 and Grounds.size()>0 and Grounds[dis_min_idx].moveflag and finger_state == 1)
+        {
+            Vector3f rotation_axis;
+            rotation_axis<<cy-yy, xx-cx, 0;
+            rotation_axis = rotation_axis / rotation_axis.norm();
+            Quaternionf rotation_q;
+            float rotation_angle;
+            rotation_angle = atan2(sqrt( (cy-yy)*(cy-yy) + (xx-cx)*(xx-cx) ), FOCUS_LENGTH_X);
+            rotation_q.x()=rotation_axis.x() * sin(rotation_angle /2.0);
+            rotation_q.y()=rotation_axis.y() * sin(rotation_angle /2.0);
+            rotation_q.z()=rotation_axis.z() * sin(rotation_angle /2.0);
+            rotation_q.w()=cos(rotation_angle /2.0);
+            Matrix3f R_CP, RWC, RWP;
+            R_CP=rotation_q;
+            RWC = R_latest * RIC;
+            RWP = RWC * R_CP;
+            
+            if (RWP(2,2) < 0 )
+            {
+                Vector3f unit_direction, direction;
+                unit_direction = RWP*Vector3f(0,0,1);
+                float length_direction;
+                Vector3f plane_normal(Grounds[dis_min_idx].initPlane[0], Grounds[dis_min_idx].initPlane[1], Grounds[dis_min_idx].initPlane[2]);
+                length_direction = abs(-1.0* (plane_normal.dot(P_latest) + Grounds[dis_min_idx].initPlane[3]) / (plane_normal.dot(unit_direction)) );
+                direction = unit_direction * length_direction;
+                
+                if (length_direction<20)
+                {
+                    Grounds[dis_min_idx].ori = direction + P_latest - (Grounds[dis_min_idx].lix*Grounds[dis_min_idx].size + Grounds[dis_min_idx].liy * Grounds[dis_min_idx].size) /2.0;
+                    Grounds[dis_min_idx].cox = Grounds[dis_min_idx].ori + Grounds[dis_min_idx].lix*Grounds[dis_min_idx].size;
+                    Grounds[dis_min_idx].coy = Grounds[dis_min_idx].ori + Grounds[dis_min_idx].liy*Grounds[dis_min_idx].size;
+                    Grounds[dis_min_idx].coz = Grounds[dis_min_idx].ori + Grounds[dis_min_idx].liz*Grounds[dis_min_idx].size;
+                    Grounds[dis_min_idx].center = (Grounds[dis_min_idx].cox + Grounds[dis_min_idx].coy)/2;
+                }
+            }
+        }
+        
+        locationX_p = locationX;
+        locationY_p = locationY;
+    }
+    
+    ////////////////////////////// translation response
     
     ////////////////////////////// scale response
     {
@@ -575,7 +647,7 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         
         if (X0AR!=X0_p or Y0AR != Y0_p)
         {
-            if ( dis_min < 120 and finger_state ==2 and Grounds.size()>0 )
+            if ( dis_min < 120 and Grounds.size()>0 )
             {
                 Matrix3f RWC = R_latest * RIC;
                 
@@ -616,6 +688,48 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         
     }
     ///////////////////////////// rotation response
+    //////////////////////////// long press unlock response
+    if (longPressFlag)
+    {
+        float xx=480 - locationLongPressY -1;
+        float yy= locationLongPressX;
+        
+        Vector3f box_center, Pc;
+        Vector2f box_center_xy, center_input;
+        center_input<< xx, yy;
+        
+        
+        float distance, dis_min;
+        unsigned int dis_min_idx;
+        dis_min= 100000;
+        for (unsigned int i =0; i< Grounds.size(); i++)
+        {
+            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
+            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
+            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            distance = (box_center_xy - center_input).norm();
+            if (distance < dis_min)
+            {
+                dis_min = distance;
+                dis_min_idx = i;
+            }
+        }
+        
+        if ( dis_min < 120 and Grounds.size()>0 )
+        {
+            Grounds[dis_min_idx].moveflag = true;
+            ////show something
+            cv::Point2f pts1;
+            
+            Pc = (R_latest * RIC).transpose()* (Grounds[dis_min_idx].coz - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
+            pts1.x = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
+            pts1.y = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            
+            cv::circle(result, pts1, 0, cvScalar(0,255,0), 12);
+        }
+        longPressFlag = false;
+    }
+    //////////////////////////// long press unlock response
     
     //add new box
     if (tapFlag and point_inlier.size()>28)
@@ -673,13 +787,12 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
             gp.liy = liney;
             gp.liz = linez;
             gp.size = lengthc;
+            gp.initPlane = findPlane(point_inlier);
             Grounds.push_back(gp);
             
         }
         tapFlag = false;
     }
-    
-    
 }
 
 /////draw existing boxes in virtual camera

@@ -181,6 +181,7 @@ class VINS
     void processIMU(double t, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
     void changeState();
     bool solveInitial();
+    void setExtrinsic();
     bool relativePose(int camera_id, Matrix3d &relative_R, Vector3d &relative_T, int &l);
     bool visualInitialAlign();
     void failureDetection();

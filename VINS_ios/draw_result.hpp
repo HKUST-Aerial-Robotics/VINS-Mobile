@@ -32,14 +32,18 @@ struct GroundPoint
     int idx;
     Vector3f center;
     bool boxflag;
+    bool moveflag;
     Vector3f ori, cox, coy, coz;
     Vector3f lix, liy, liz;
     float size;
+    Vector4f initPlane;
     
     GroundPoint(int idx_, Vector3f center_)
     {
         idx = idx_;
         center = center_;
+        boxflag = false;
+        moveflag = false;
     }
 };
 
@@ -61,6 +65,9 @@ public:
     float locationXP_p, locationYP_p;
     float locationTapX, locationTapY;
     bool tapFlag;
+    float locationLongPressX;
+    float locationLongPressY;
+    bool longPressFlag;
     
     float theta_p, phy_p, radius_p;
     float X0_p, Y0_p;

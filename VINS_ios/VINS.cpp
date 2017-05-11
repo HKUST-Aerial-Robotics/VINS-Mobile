@@ -59,6 +59,14 @@ void VINS::clearState()
     
 }
 
+void VINS::setExtrinsic()
+{
+    tic << TIC_X,
+    TIC_Y,
+    TIC_Z;
+    ric = Utility::ypr2R(Vector3d(RIC_y,RIC_p,RIC_r));
+}
+
 void VINS::old2new()
 {
     for (int i = 0; i <= WINDOW_SIZE; i++)
@@ -564,12 +572,12 @@ void VINS::solve_ceres(int buf_num)
     //options.max_num_iterations = 10;
     //options.use_nonmonotonic_steps = true;
     if(buf_num<2)
-        options.max_solver_time_in_seconds = 0.08;
+        options.max_solver_time_in_seconds = SOLVER_TIME;
     else if(buf_num<4)
-        options.max_solver_time_in_seconds = 0.06;
+        options.max_solver_time_in_seconds = SOLVER_TIME * 2.0 / 3.0;
     else
-        options.max_solver_time_in_seconds = 0.04;
-//    options.max_solver_time_in_seconds = 0.04;
+        options.max_solver_time_in_seconds = SOLVER_TIME / 2.0;
+
     ceres::Solver::Summary summary;
     //TE(prepare_solver);
     TS(ceres);

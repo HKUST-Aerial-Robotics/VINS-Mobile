@@ -19,6 +19,7 @@
 #include "keyframe.h"
 #include "loop_closure.h"
 #include "keyfame_database.h"
+#import <sys/utsname.h>
 
 @interface ViewController : UIViewController<CvVideoCameraDelegate,UITextViewDelegate>
 {

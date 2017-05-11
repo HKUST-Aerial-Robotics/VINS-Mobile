@@ -168,8 +168,13 @@ float total_odom = 0;
         
         voc_init_ok = true;
     }
-    while(LOOP_CLOSURE && ![[NSThread currentThread] isCancelled] )
+    while(![[NSThread currentThread] isCancelled] )
     {
+        if(!LOOP_CLOSURE)
+        {
+            [NSThread sleepForTimeInterval:0.5];
+            continue;
+        }
         if(!erase_index.empty() && loop_closure != NULL)
             loop_closure->eraseIndex(erase_index);
         
@@ -389,6 +394,11 @@ float total_odom = 0;
                                                               initWithTarget:self
                                                               action:@selector(handleTap:)];
     [self.imageView addGestureRecognizer:resultTapGestureRecognizer];
+    
+    UILongPressGestureRecognizer *resultLongPressGestureRecognizer = [[UILongPressGestureRecognizer alloc]
+                                                                     initWithTarget:self
+                                                                     action:@selector(handleLongPress:)];
+    [self.imageView addGestureRecognizer:resultLongPressGestureRecognizer];
     //////pipikk
     //feature_tracker = NULL;
     if (!feature_tracker)
@@ -428,18 +438,54 @@ float total_odom = 0;
     _stopButton.enabled = NO;
     alertView = [[UIAlertView alloc]initWithTitle:@"WARN" message:@"please wait for vocabulary loading!" delegate:self cancelButtonTitle:@"confirm" otherButtonTitles:@"cancel", nil];
     
+    //Get device model
+    bool deviceCheck = setGlobalParam(deviceName());
+    if(!deviceCheck)
+    {
+        UIAlertController *alertDevice = [UIAlertController alertControllerWithTitle:@"Error" message:@"Unsupported Device!" preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action)
+                                       {exit(0);}];
+        UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action)
+                                   {exit(0);}];
+        [alertDevice addAction:cancelAction];
+        [alertDevice addAction:okAction];
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            [self presentViewController:alertDevice animated:YES completion:nil];
+        });
+    }
+    //exit(0);
+    vins.setExtrinsic();
+    vins.setIMUModel();
+    bool versionCheck = iosVersion();
+    if(!versionCheck)
+    {
+        UIAlertController *alertVersion = [UIAlertController alertControllerWithTitle:@"Warn" message:@"Please upgrade your iOS version!" preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action)
+                                       {exit(0);}];
+        UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action)
+                                   {exit(0);}];
+        [alertVersion addAction:cancelAction];
+        [alertVersion addAction:okAction];
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            [self presentViewController:alertVersion animated:YES completion:nil];
+        });
+    }
+    
 #if !VINS_FRAMEWORK
     [self.fovLabel removeFromSuperview];
     [self.fovSlider removeFromSuperview];
 #endif
     
     //always on
-    [self imuStartUpdate];
-    isCapturing = YES;
-    [mainLoop start];
-    motionManager = [[CMMotionManager alloc] init];
-    frameSize = cv::Size(videoCamera.imageWidth,
-                         videoCamera.imageHeight);
+    if(versionCheck && deviceCheck)
+    {
+        [self imuStartUpdate];
+        isCapturing = YES;
+        [mainLoop start];
+        motionManager = [[CMMotionManager alloc] init];
+        frameSize = cv::Size(videoCamera.imageWidth,
+                             videoCamera.imageHeight);
+    }
     
 }
 
@@ -469,15 +515,6 @@ bool start_active = true;
         
         start_active = false;
         start_show = true;
-        
-        /*
-        [self imuStartUpdate];
-        isCapturing = YES;
-        [mainLoop start];
-        motionManager = [[CMMotionManager alloc] init];
-        frameSize = cv::Size(videoCamera.imageWidth,
-                             videoCamera.imageHeight);
-         */
     }
 }
 
@@ -490,16 +527,6 @@ bool start_active = true;
         _stopButton.enabled = false;
         
         start_active = true;
-        /*
-        [mainLoop cancel];
-        if(LOOP_CLOSURE)
-        {
-            [loop_thread cancel];
-        }
-        [motionManager stopAccelerometerUpdates];
-        [motionManager stopGyroUpdates];
-        [motionManager stopDeviceMotionUpdates];
-        */
     }
 }
 
@@ -536,6 +563,68 @@ bool start_active = true;
 #if VINS_FRAMEWORK
     //VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
 #endif
+}
+
+DeviceType deviceName()
+{
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    
+    NSString *device = [NSString stringWithCString:systemInfo.machine
+                                          encoding:NSUTF8StringEncoding];
+    DeviceType device_type;
+    if(([device compare:@"iPhone9,1"] == NSOrderedSame) ||
+       ([device compare:@"iPhone9,3"] == NSOrderedSame))
+    {
+        printf("Device iPhone7\n");
+        device_type = iPhone7;
+    }
+    else if(([device compare:@"iPhone9,2"] == NSOrderedSame) ||
+            ([device compare:@"iPhone9,4"] == NSOrderedSame))
+    {
+        printf("Device iPhone7 plus\n");
+        device_type = iPhone7P;
+    }
+    else if(([device compare:@"iPhone8,2"] == NSOrderedSame))
+    {
+        printf("Device iPhone6s plus\n");
+        device_type = iPhone6sP;
+    }
+    else if(([device compare:@"iPhone8,1"] == NSOrderedSame))
+    {
+        printf("Device iPhone6s\n");
+        device_type = iPhone6s;
+    }
+    else if(([device compare:@"iPad6,3"] == NSOrderedSame)||
+            ([device compare:@"iPad6,4"] == NSOrderedSame))
+    {
+        printf("Device iPad pro 9.7\n");
+        device_type = iPadPro97;
+    }
+    else if(([device compare:@"iPad6,7"] == NSOrderedSame)||
+            ([device compare:@"iPad6,8"] == NSOrderedSame))
+    {
+        printf("Device iPad pro 12.9\n");
+        device_type = iPadPro129;
+    }
+    else
+    {
+        printf("Device undefine\n");
+        device_type = unDefine;
+    }
+    return device_type;
+}
+
+bool iosVersion()
+{
+    NSComparisonResult order = [[UIDevice currentDevice].systemVersion compare: @"10.2.1" options: NSNumericSearch];
+    if (order == NSOrderedSame || order == NSOrderedDescending) {
+        printf("system version >= 10.2.1\n");
+        return true;
+    } else {
+        printf("system version < 10.2.1\n");
+        return false;
+    }
 }
 
 queue<IMG_DATA_CACHE> image_pool;
@@ -1412,6 +1501,20 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
 
 }
 
+- (void) handleLongPress:(UILongPressGestureRecognizer*) recognizer
+{
+    if (!ui_main)
+    {
+        
+    }
+    {
+        CGPoint point = [recognizer locationInView:self.view];
+        vins.drawresult.locationLongPressX = point.x * 640.0 / imageView.frame.size.width;
+        vins.drawresult.locationLongPressY = point.y * 480.0 / imageView.frame.size.height;
+        vins.drawresult.longPressFlag = true;
+    }
+}
+
 /**************************************************************UI**********************************************************/
 
 /**************************************************************SAVE DATA**********************************************************/
@@ -1420,12 +1523,12 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     if(LOOP_CLOSURE)
     {
         LOOP_CLOSURE = false;
-        [_recordButton setTitle:@"Enable Loop" forState:UIControlStateNormal];
+        [_recordButton setTitle:@"ENLOOP" forState:UIControlStateNormal];
     }
     else
     {
         LOOP_CLOSURE = true;
-        [_recordButton setTitle:@"Disable Loop" forState:UIControlStateNormal];
+        [_recordButton setTitle:@"UNLOOP" forState:UIControlStateNormal];
     }
     /*
     start_record = !start_record;
