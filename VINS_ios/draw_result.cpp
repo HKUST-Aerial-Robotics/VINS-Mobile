@@ -412,7 +412,7 @@ void DrawResult::drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, 
     p[7] = boxImage[7];
     
     int npts[1] = {4};
-    float min_depth = 10;
+    float min_depth = 100000;
     int min_index = 5;
     for(int i= 0; i< depth_of_coner.size(); i++)
     {
