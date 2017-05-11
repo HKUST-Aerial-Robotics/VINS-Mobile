@@ -267,83 +267,6 @@ float total_odom = 0;
     
 }
 
-- (void)viewDidAppear:(BOOL)animated
-{
-    [super viewDidAppear:animated];
-    
-#if VINS_FRAMEWORK
-    //VINSUnityAPI::TestNativeTexture();
-#endif
-}
-
-bool start_active = true;
-
--(IBAction)startButtonPressed:(id)sender
-{
-    printf("start\n");
-    
-    if(!voc_init_ok && LOOP_CLOSURE)
-    {
-        [alertView show];
-    }
-    else if(start_active)
-    {
-        startButton.enabled = false;
-        _stopButton.enabled = true;
-        
-        start_active = false;
-        start_show = true;
-    }
-}
-
-
--(IBAction)extrange:(id)sender   //actually is stop button
-{
-    if(!start_active)
-    {
-        startButton.enabled = true;
-        _stopButton.enabled = false;
-        
-        start_active = true;
-    }
-}
-
--(IBAction)switchUI:(UISegmentedControl *)sender
-{
-    switch (_switchUI.selectedSegmentIndex)
-    {
-        case 0:
-#if VINS_FRAMEWORK
-            CAMERA_MODE = false;
-#else
-            printf("show AR\n");
-            ui_main = true;
-            box_in_AR= true;
-#endif
-            break;
-        case 1:
-#if VINS_FRAMEWORK
-            CAMERA_MODE = true;
-#else
-            ui_main = false;
-            if (box_in_AR)
-                box_in_trajectory = true;
-            printf("show VINS\n");
-#endif
-            break;
-        default: 
-            break; 
-    } 
-}
-- (IBAction)fovSliderValueChanged:(id)sender {
-    self.fovLabel.text = [[NSNumber numberWithFloat:self.fovSlider.value] stringValue];
-    
-#if VINS_FRAMEWORK
-    //VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
-#endif
-}
-
-
 /*
  Main process image thread: this thread detects and track feature between two continuous images
  and takes the newest VINS result and the corresponding image to draw AR and trajectory.
@@ -1257,6 +1180,74 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
 
 
 /********************************************************************UI Button Controler********************************************************************/
+
+bool start_active = true;
+
+-(IBAction)startButtonPressed:(id)sender
+{
+    printf("start\n");
+    
+    if(!voc_init_ok && LOOP_CLOSURE)
+    {
+        [alertView show];
+    }
+    else if(start_active)
+    {
+        startButton.enabled = false;
+        _stopButton.enabled = true;
+        
+        start_active = false;
+        start_show = true;
+    }
+}
+
+
+-(IBAction)extrange:(id)sender   //actually is stop button
+{
+    if(!start_active)
+    {
+        startButton.enabled = true;
+        _stopButton.enabled = false;
+        
+        start_active = true;
+    }
+}
+
+-(IBAction)switchUI:(UISegmentedControl *)sender
+{
+    switch (_switchUI.selectedSegmentIndex)
+    {
+        case 0:
+#if VINS_FRAMEWORK
+            CAMERA_MODE = false;
+#else
+            printf("show AR\n");
+            ui_main = true;
+            box_in_AR= true;
+#endif
+            break;
+        case 1:
+#if VINS_FRAMEWORK
+            CAMERA_MODE = true;
+#else
+            ui_main = false;
+            if (box_in_AR)
+                box_in_trajectory = true;
+            printf("show VINS\n");
+#endif
+            break;
+        default:
+            break;
+    }
+}
+- (IBAction)fovSliderValueChanged:(id)sender {
+    self.fovLabel.text = [[NSNumber numberWithFloat:self.fovSlider.value] stringValue];
+    
+#if VINS_FRAMEWORK
+    //VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
+#endif
+}
+
 - (void) handlePan:(UIPanGestureRecognizer*) recognizer
 {
     if(ui_main and 0)
@@ -1643,6 +1634,15 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
 }
 
 /**************************************************************About record and playback data for debug**********************************************************/
+
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    
+#if VINS_FRAMEWORK
+    //VINSUnityAPI::TestNativeTexture();
+#endif
+}
 
 - (void)viewDidDisappear:(BOOL)animated
 {
