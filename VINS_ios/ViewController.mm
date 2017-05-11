@@ -12,17 +12,9 @@
 
 #if VINS_FRAMEWORK
     //#import "VINSUnityAPI.h"
-    /*for Unity_iPhone, choose camera mode or glass mode
-      if true: camera mode, visualization use alighed image and vins result, neither is the latest result
-      if false: glass mode, visulization use latest vins result and glasses real image
-    */
-    //#define CAMERA_MODE true
     #define ENABLE_IMU_PRIDICT true //only enbale in (glass mode) && (Unity_iPhone)
 
 #else
-    //for VINS_ios, use camera mode and disable imu predict by default
-    //don't change
-    //#define CAMERA_MODE true
     #define ENABLE_IMU_PRIDICT false
     //#define DATA_EXPORT true
 #endif
@@ -135,214 +127,11 @@ float y_view_last = -5000;
 float z_view_last = -5000;
 float total_odom = 0;
 
--(void)saveData{
-    while (![[NSThread currentThread] isCancelled])
-    {
-        @autoreleasepool
-        {
-            if(!imgDataBuf.empty())
-            {
-                IMG_DATA tmp_data;
-                tmp_data = imgDataBuf.front();
-                imgDataBuf.pop();
-                [self recordImageTime:tmp_data];
-                [self recordImage:tmp_data];
-                imageDataIndex++;
-                //NSLog(@"record: %lf %lu",tmp_data.header,imageDataIndex);
-            }
-        }
-        [NSThread sleepForTimeInterval:0.04];
-    }
-}
-
--(void)loop_thread{
-    
-    if(LOOP_CLOSURE && loop_closure == NULL)
-    {
-        NSLog(@"loop start load voc");
-        TS(load_voc);
-        const char *voc_file = [[[NSBundle bundleForClass:[self class]] pathForResource:@"brief_k10L6" ofType:@"bin"] cStringUsingEncoding:[NSString defaultCStringEncoding]];
-        loop_closure = new LoopClosure(voc_file, COL, ROW);
-        TE(load_voc);
-        NSLog(@"loop load voc finish");
-        
-        voc_init_ok = true;
-    }
-    while(![[NSThread currentThread] isCancelled] )
-    {
-        if(!LOOP_CLOSURE)
-        {
-            [NSThread sleepForTimeInterval:0.5];
-            continue;
-        }
-        if(!erase_index.empty() && loop_closure != NULL)
-            loop_closure->eraseIndex(erase_index);
-        
-        if (loop_check_cnt < global_frame_cnt)
-        {
-            KeyFrame* cur_kf = keyframe_database.getLastUncheckKeyframe();
-            assert(loop_check_cnt == cur_kf->global_index);
-            loop_check_cnt++;
-            cur_kf->check_loop = 1;
-        
-            cv::Mat current_image;
-            current_image = cur_kf->image;
-        
-            std::vector<cv::Point2f> measurements_old;
-            std::vector<cv::Point2f> measurements_old_norm;
-            std::vector<cv::Point2f> measurements_cur;
-            std::vector<int> features_id;
-            std::vector<cv::Point2f> measurements_cur_origin = cur_kf->measurements;
-            
-            bool loop_succ = false;
-            
-            vector<cv::Point2f> cur_pts;
-            vector<cv::Point2f> old_pts;
-            cur_kf->extractBrief(current_image);
-            printf("loop extract %d feature\n", cur_kf->keypoints.size());
-            loop_succ = loop_closure->startLoopClosure(cur_kf->keypoints, cur_kf->descriptors, cur_pts, old_pts, old_index);
-            if(loop_succ)
-            {
-                KeyFrame* old_kf = keyframe_database.getKeyframe(old_index);
-                if (old_kf == NULL)
-                {
-                    printf("NO such frame in keyframe_database\n");
-                    assert(false);
-                }
-                printf("loop succ %d with %drd image\n", process_keyframe_cnt-1, old_index);
-                assert(old_index!=-1);
-                
-                Vector3d T_w_i_old;
-                Matrix3d R_w_i_old;
-                
-                old_kf->getOriginPose(T_w_i_old, R_w_i_old);
-                cur_kf->findConnectionWithOldFrame(old_kf, cur_pts, old_pts,
-                                                   measurements_old, measurements_old_norm);
-                measurements_cur = cur_kf->measurements;
-                features_id = cur_kf->features_id;
-                
-                if(measurements_old_norm.size()>MIN_LOOP_NUM)
-                {
-                    
-                    Quaterniond Q_loop_old(R_w_i_old);
-                    RetriveData retrive_data;
-                    retrive_data.cur_index = cur_kf->global_index;
-                    retrive_data.header = cur_kf->header;
-                    retrive_data.P_old = T_w_i_old;
-                    retrive_data.Q_old = Q_loop_old;
-                    retrive_data.use = true;
-                    retrive_data.measurements = measurements_old_norm;
-                    retrive_data.features_ids = features_id;
-                    vins.retrive_pose_data = (retrive_data);
-                    printf("loop push\n");
-                    
-                    //cout << "old pose " << T_w_i_old.transpose() << endl;
-                    //cout << "refinded pose " << T_w_i_refine.transpose() << endl;
-                    // add loop edge in current frame
-                    cur_kf->detectLoop(old_index);
-                    keyframe_database.addLoop(old_index);
-                    old_kf->is_looped = 1;
-                }
-            }
-            cur_kf->image.release();
-        }
-        else
-        {
-            i_buf.unlock();
-        }
-        [NSThread sleepForTimeInterval:0.1];
-    }
-    //[self process_loop_detection];
-}
-
-- (void)showInputView
-{
-    NSString *stringView;
-    if(vins.solver_flag != vins.NON_LINEAR)
-    {
-        switch (vins.init_status) {
-            case vins.FAIL_IMU:
-                stringView = [NSString stringWithFormat:@"STA: FAIL_IMU"];
-                break;
-            case vins.FAIL_PARALLAX:
-                stringView = [NSString stringWithFormat:@"STA: FAIL_PARA"];
-                break;
-            case vins.FAIL_RELATIVE:
-                stringView = [NSString stringWithFormat:@"STA: FAIL_RELA"];
-                break;
-            case vins.FAIL_SFM:
-                stringView = [NSString stringWithFormat:@"STA: FAIL_SFM"];
-                break;
-            case vins.FAIL_PNP:
-                stringView = [NSString stringWithFormat:@"STA: FAIL_PNP"];
-                break;
-            case vins.FAIL_ALIGN:
-                stringView = [NSString stringWithFormat:@"STA: FAIL_ALIGN"];
-                break;
-            case vins.FAIL_CHECK:
-                stringView = [NSString stringWithFormat:@"STA: FAIL_COST"];
-                break;
-            case vins.SUCC:
-                stringView = [NSString stringWithFormat:@"STA: SUCC!"];
-                break;
-            default:
-                break;
-        }
-        [_X_label setText:stringView];
-        stringView = [NSString stringWithFormat:@"FAIL: %d times", vins.fail_times];
-        [_Y_label setText:stringView];
-        stringView = [NSString stringWithFormat:@"PARALLAX: %d", vins.parallax_num_view];
-        [_Z_label setText:stringView];
-    }
-    else
-    {
-        float x_view = (float)vins.correct_Ps[frame_cnt][0];
-        float y_view = (float)vins.correct_Ps[frame_cnt][1];
-        float z_view = (float)vins.correct_Ps[frame_cnt][2];
-        if(x_view_last == -5000)
-        {
-            x_view_last = x_view;
-            y_view_last = y_view;
-            z_view_last = z_view;
-        }
-        total_odom += sqrt(pow((x_view - x_view_last), 2) +
-                           pow((y_view - y_view_last), 2) +
-                           pow((z_view - z_view_last), 2));
-        x_view_last = x_view;
-        y_view_last = y_view;
-        z_view_last = z_view;
-        
-        stringView = [NSString stringWithFormat:@"X:%.2f",x_view];
-        [_X_label setText:stringView];
-        stringView = [NSString stringWithFormat:@"TOTAL:%.2f",total_odom];
-        //stringView = [NSString stringWithFormat:@"COST:%.2lf",vins.final_cost];
-        //stringView = [NSString stringWithFormat:@"COST: %d, %.2lf",vins.visual_factor_num, vins.visual_cost];
-        [_total_odom_label setText:stringView];
-        stringView = [NSString stringWithFormat:@"Y:%.2f",y_view];
-        [_Y_label setText:stringView];
-        stringView = [NSString stringWithFormat:@"Z:%.2f",z_view];
-        [_Z_label setText:stringView];
-    }
-    stringView = [NSString stringWithFormat:@"BUF:%d",waiting_lists];
-    [_buf_label setText:stringView];
-    //NSString *stringZ = [NSString stringWithFormat:@"Z:%.2f",z_view, vins.f_manager.getFeatureCount()];
-    if(old_index != -1)
-    {
-        stringView = [NSString stringWithFormat:@"LOOP with %d",old_index];
-        [_loop_label setText:stringView];
-    }
-    stringView = [NSString stringWithFormat:@"FEATURE: %d",vins.feature_num];
-    [_feature_label setText:stringView];
-}
-
--(void)showOutputImage:(UIImage*)image
-{
-    [featureImageView setImage:image];
-}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     
+    /*******************************************Camera setup*******************************************/
 #if VINS_FRAMEWORK
     self.videoCamera = [[CvVideoCamera alloc] init];
     ui_main = true;
@@ -366,16 +155,10 @@ float total_odom = 0;
     
     isCapturing = NO;
     
-    /*
-    UITapGestureRecognizer *imageTapGestureRecognizer = [[UITapGestureRecognizer alloc]
-                                                              initWithTarget:self
-                                                              action:@selector(handleTap:)];
-    [self.imageView addGestureRecognizer:imageTapGestureRecognizer];
-    */
     [CameraUtils setExposureOffset: 0.0f];
     [videoCamera start];
     
-    //add gesture recognizer
+    /***************************************UI configuration*****************************************/
     UIPanGestureRecognizer *resultPanGestureRecognizer = [[UIPanGestureRecognizer alloc]
                                                     initWithTarget:self
                                                     action:@selector(handlePan:)];
@@ -388,8 +171,6 @@ float total_odom = 0;
                                                         action:@selector(handlePinch:)];
     [self.imageView addGestureRecognizer:resultPinchGestureRecognizer];
     
-    
-    //////pipikk
     UITapGestureRecognizer *resultTapGestureRecognizer = [[UITapGestureRecognizer alloc]
                                                               initWithTarget:self
                                                               action:@selector(handleTap:)];
@@ -399,13 +180,24 @@ float total_odom = 0;
                                                                      initWithTarget:self
                                                                      action:@selector(handleLongPress:)];
     [self.imageView addGestureRecognizer:resultLongPressGestureRecognizer];
-    //////pipikk
-    //feature_tracker = NULL;
+    
     if (!feature_tracker)
         feature_tracker = new FeatureTracker();
     
-    NSLog(@"start");
-    //main thread
+    //give projection variance
+    vins.setIMUModel();
+    RcForView = MatrixXf::Identity(3,3);
+    
+    //UI
+    startButton.layer.zPosition = 1;
+    _recordButton.layer.zPosition = 1;
+    _playbackButton.layer.zPosition = 1;
+    startButton.enabled = YES;
+    _stopButton.enabled = NO;
+    alertView = [[UIAlertView alloc]initWithTitle:@"WARN" message:@"please wait for vocabulary loading!" delegate:self cancelButtonTitle:@"confirm" otherButtonTitles:@"cancel", nil];
+    
+    
+    /****************************************Init all the thread****************************************/
     _condition=[[NSCondition alloc] init];
     mainLoop=[[NSThread alloc]initWithTarget:self selector:@selector(run) object:nil];
     [mainLoop setName:@"mainLoop"];
@@ -424,21 +216,8 @@ float total_odom = 0;
         [globalLoopThread setName:@"globalLoopThread"];
         [globalLoopThread start];
     }
-
-    //give projection variance
-    vins.setIMUModel();
     
-    RcForView = MatrixXf::Identity(3,3);
-    
-    //UI
-    startButton.layer.zPosition = 1;
-    _recordButton.layer.zPosition = 1;
-    _playbackButton.layer.zPosition = 1;
-    startButton.enabled = YES;
-    _stopButton.enabled = NO;
-    alertView = [[UIAlertView alloc]initWithTitle:@"WARN" message:@"please wait for vocabulary loading!" delegate:self cancelButtonTitle:@"confirm" otherButtonTitles:@"cancel", nil];
-    
-    //Get device model
+    /************************************Device and iOS version check************************************/
     bool deviceCheck = setGlobalParam(deviceName());
     if(!deviceCheck)
     {
@@ -453,7 +232,6 @@ float total_odom = 0;
             [self presentViewController:alertDevice animated:YES completion:nil];
         });
     }
-    //exit(0);
     vins.setExtrinsic();
     vins.setIMUModel();
     bool versionCheck = iosVersion();
@@ -476,7 +254,7 @@ float total_odom = 0;
     [self.fovSlider removeFromSuperview];
 #endif
     
-    //always on
+    /*********************************************Start VINS*******************************************/
     if(versionCheck && deviceCheck)
     {
         [self imuStartUpdate];
@@ -565,68 +343,11 @@ bool start_active = true;
 #endif
 }
 
-DeviceType deviceName()
-{
-    struct utsname systemInfo;
-    uname(&systemInfo);
-    
-    NSString *device = [NSString stringWithCString:systemInfo.machine
-                                          encoding:NSUTF8StringEncoding];
-    DeviceType device_type;
-    if(([device compare:@"iPhone9,1"] == NSOrderedSame) ||
-       ([device compare:@"iPhone9,3"] == NSOrderedSame))
-    {
-        printf("Device iPhone7\n");
-        device_type = iPhone7;
-    }
-    else if(([device compare:@"iPhone9,2"] == NSOrderedSame) ||
-            ([device compare:@"iPhone9,4"] == NSOrderedSame))
-    {
-        printf("Device iPhone7 plus\n");
-        device_type = iPhone7P;
-    }
-    else if(([device compare:@"iPhone8,2"] == NSOrderedSame))
-    {
-        printf("Device iPhone6s plus\n");
-        device_type = iPhone6sP;
-    }
-    else if(([device compare:@"iPhone8,1"] == NSOrderedSame))
-    {
-        printf("Device iPhone6s\n");
-        device_type = iPhone6s;
-    }
-    else if(([device compare:@"iPad6,3"] == NSOrderedSame)||
-            ([device compare:@"iPad6,4"] == NSOrderedSame))
-    {
-        printf("Device iPad pro 9.7\n");
-        device_type = iPadPro97;
-    }
-    else if(([device compare:@"iPad6,7"] == NSOrderedSame)||
-            ([device compare:@"iPad6,8"] == NSOrderedSame))
-    {
-        printf("Device iPad pro 12.9\n");
-        device_type = iPadPro129;
-    }
-    else
-    {
-        printf("Device undefine\n");
-        device_type = unDefine;
-    }
-    return device_type;
-}
 
-bool iosVersion()
-{
-    NSComparisonResult order = [[UIDevice currentDevice].systemVersion compare: @"10.2.1" options: NSNumericSearch];
-    if (order == NSOrderedSame || order == NSOrderedDescending) {
-        printf("system version >= 10.2.1\n");
-        return true;
-    } else {
-        printf("system version < 10.2.1\n");
-        return false;
-    }
-}
-
+/*
+ Main process image thread: this thread detects and track feature between two continuous images
+ and takes the newest VINS result and the corresponding image to draw AR and trajectory.
+ */
 queue<IMG_DATA_CACHE> image_pool;
 queue<VINS_DATA_CACHE> vins_pool;
 IMG_DATA_CACHE image_data_cache;
@@ -899,35 +620,11 @@ bool vins_updated = false;
 #endif
     }
 }
-/******************************************************save image to image library, for export debug*************************************************/
-- (void)tapSaveImageToIphone:(UIImage*)image
-{
-    UIImageWriteToSavedPhotosAlbum(image, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
-}
 
-- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo{
-    
-    if (error == nil) {
-        NSLog(@"save access");
-    }else{
-        NSLog(@"save failed");
-    }
-}
 
-/******************************************************save image to image library, for export debug*************************************************/
-void update()
-{
-    latest_time = lateast_imu_time;
-    tmp_P = vins.Ps[WINDOW_SIZE];
-    tmp_Q = Eigen::Quaterniond{vins.Rs[WINDOW_SIZE]};
-    tmp_V = vins.Vs[WINDOW_SIZE];
-    tmp_Ba = vins.Bas[WINDOW_SIZE];
-    tmp_Bg = vins.Bgs[WINDOW_SIZE];
-    acc_0 = vins.acc_0;
-    gyr_0 = vins.gyr_0;
-    //printf("predict update: x = %.3f, y = %.3f z = %.3f\n",tmp_P(0),tmp_P(1),tmp_P(2));
-}
-
+/*
+   Send imu data and visual data into VINS
+*/
 std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>>
 getMeasurements()
 {
@@ -987,7 +684,23 @@ void send_imu(const ImuConstPtr &imu_msg)
     vins.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
 }
 
-#pragma mark--线程执行方法
+void update()
+{
+    latest_time = lateast_imu_time;
+    tmp_P = vins.Ps[WINDOW_SIZE];
+    tmp_Q = Eigen::Quaterniond{vins.Rs[WINDOW_SIZE]};
+    tmp_V = vins.Vs[WINDOW_SIZE];
+    tmp_Ba = vins.Bas[WINDOW_SIZE];
+    tmp_Bg = vins.Bgs[WINDOW_SIZE];
+    acc_0 = vins.acc_0;
+    gyr_0 = vins.gyr_0;
+    //printf("predict update: x = %.3f, y = %.3f z = %.3f\n",tmp_P(0),tmp_P(1),tmp_P(2));
+}
+
+/*
+   VINS thread: this thread tightly fuses the visual measurements and imu data and solves pose, velocity, IMU bias, 3D feature for all frame in WINNDOW
+                If the newest frame is keyframe, then push it into keyframe database
+*/
 -(void)run{
     [_condition lock];
     while (![[NSThread currentThread] isCancelled])
@@ -999,7 +712,6 @@ void send_imu(const ImuConstPtr &imu_msg)
     
 }
 
-//the main process loop
 int kf_global_index;
 bool start_global_optimization = false;
 -(void)process
@@ -1017,7 +729,7 @@ bool start_global_optimization = false;
     {
         for(auto &imu_msg : measurement.first)
         {
-             send_imu(imu_msg);
+            send_imu(imu_msg);
         }
         
         auto img_msg = measurement.second;
@@ -1096,7 +808,7 @@ bool start_global_optimization = false;
                         
                         global_frame_cnt++;
                     }
-
+                    
                 }
                 else
                 {
@@ -1151,6 +863,113 @@ bool start_global_optimization = false;
     }
 }
 
+
+/*
+ Loop detection thread: this thread detect loop for newest keyframe and retrieve features
+*/
+-(void)loop_thread{
+    
+    if(LOOP_CLOSURE && loop_closure == NULL)
+    {
+        NSLog(@"loop start load voc");
+        TS(load_voc);
+        const char *voc_file = [[[NSBundle bundleForClass:[self class]] pathForResource:@"brief_k10L6" ofType:@"bin"] cStringUsingEncoding:[NSString defaultCStringEncoding]];
+        loop_closure = new LoopClosure(voc_file, COL, ROW);
+        TE(load_voc);
+        NSLog(@"loop load voc finish");
+        
+        voc_init_ok = true;
+    }
+    while(![[NSThread currentThread] isCancelled] )
+    {
+        if(!LOOP_CLOSURE)
+        {
+            [NSThread sleepForTimeInterval:0.5];
+            continue;
+        }
+        if(!erase_index.empty() && loop_closure != NULL)
+            loop_closure->eraseIndex(erase_index);
+        
+        if (loop_check_cnt < global_frame_cnt)
+        {
+            KeyFrame* cur_kf = keyframe_database.getLastUncheckKeyframe();
+            assert(loop_check_cnt == cur_kf->global_index);
+            loop_check_cnt++;
+            cur_kf->check_loop = 1;
+            
+            cv::Mat current_image;
+            current_image = cur_kf->image;
+            
+            std::vector<cv::Point2f> measurements_old;
+            std::vector<cv::Point2f> measurements_old_norm;
+            std::vector<cv::Point2f> measurements_cur;
+            std::vector<int> features_id;
+            std::vector<cv::Point2f> measurements_cur_origin = cur_kf->measurements;
+            
+            bool loop_succ = false;
+            
+            vector<cv::Point2f> cur_pts;
+            vector<cv::Point2f> old_pts;
+            cur_kf->extractBrief(current_image);
+            printf("loop extract %d feature\n", cur_kf->keypoints.size());
+            loop_succ = loop_closure->startLoopClosure(cur_kf->keypoints, cur_kf->descriptors, cur_pts, old_pts, old_index);
+            if(loop_succ)
+            {
+                KeyFrame* old_kf = keyframe_database.getKeyframe(old_index);
+                if (old_kf == NULL)
+                {
+                    printf("NO such frame in keyframe_database\n");
+                    assert(false);
+                }
+                printf("loop succ %d with %drd image\n", process_keyframe_cnt-1, old_index);
+                assert(old_index!=-1);
+                
+                Vector3d T_w_i_old;
+                Matrix3d R_w_i_old;
+                
+                old_kf->getOriginPose(T_w_i_old, R_w_i_old);
+                cur_kf->findConnectionWithOldFrame(old_kf, cur_pts, old_pts,
+                                                   measurements_old, measurements_old_norm);
+                measurements_cur = cur_kf->measurements;
+                features_id = cur_kf->features_id;
+                
+                if(measurements_old_norm.size()>MIN_LOOP_NUM)
+                {
+                    
+                    Quaterniond Q_loop_old(R_w_i_old);
+                    RetriveData retrive_data;
+                    retrive_data.cur_index = cur_kf->global_index;
+                    retrive_data.header = cur_kf->header;
+                    retrive_data.P_old = T_w_i_old;
+                    retrive_data.Q_old = Q_loop_old;
+                    retrive_data.use = true;
+                    retrive_data.measurements = measurements_old_norm;
+                    retrive_data.features_ids = features_id;
+                    vins.retrive_pose_data = (retrive_data);
+                    printf("loop push\n");
+                    
+                    //cout << "old pose " << T_w_i_old.transpose() << endl;
+                    //cout << "refinded pose " << T_w_i_refine.transpose() << endl;
+                    // add loop edge in current frame
+                    cur_kf->detectLoop(old_index);
+                    keyframe_database.addLoop(old_index);
+                    old_kf->is_looped = 1;
+                }
+            }
+            cur_kf->image.release();
+        }
+        else
+        {
+            i_buf.unlock();
+        }
+        [NSThread sleepForTimeInterval:0.1];
+    }
+    //[self process_loop_detection];
+}
+
+/*
+  GLobal Pose graph thread: optimize global pose graph based on realative pose from vins and update the keyframe database
+*/
 -(void)globalLoopThread{
     while (![[NSThread currentThread] isCancelled])
     {
@@ -1159,8 +978,8 @@ bool start_global_optimization = false;
             start_global_optimization = false;
             TS(debug_loop_thread);
             keyframe_database.optimize4DoFLoopPoseGraph(kf_global_index,
-                                                    loop_correct_t,
-                                                    loop_correct_r);
+                                                        loop_correct_t,
+                                                        loop_correct_r);
             vins.t_drift = loop_correct_t;
             vins.r_drift = loop_correct_r;
             TE(debug_loop_thread);
@@ -1168,13 +987,14 @@ bool start_global_optimization = false;
         [NSThread sleepForTimeInterval:0.1];
     }
 }
-/******************************************************IMU delegate************************************************************/
+
 /*
  Z^
   |   /Y
   |  /
   | /
   |/--------->X
+  IMU data process and interploration
  
 */
 bool imuDataFinished = false;
@@ -1348,7 +1168,95 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
      }];
 }
 
-/**************************************************************UI**********************************************************/
+/********************************************************************UI View Controler********************************************************************/
+- (void)showInputView
+{
+    NSString *stringView;
+    if(vins.solver_flag != vins.NON_LINEAR)
+    {
+        switch (vins.init_status) {
+            case vins.FAIL_IMU:
+                stringView = [NSString stringWithFormat:@"STA: FAIL_IMU"];
+                break;
+            case vins.FAIL_PARALLAX:
+                stringView = [NSString stringWithFormat:@"STA: FAIL_PARA"];
+                break;
+            case vins.FAIL_RELATIVE:
+                stringView = [NSString stringWithFormat:@"STA: FAIL_RELA"];
+                break;
+            case vins.FAIL_SFM:
+                stringView = [NSString stringWithFormat:@"STA: FAIL_SFM"];
+                break;
+            case vins.FAIL_PNP:
+                stringView = [NSString stringWithFormat:@"STA: FAIL_PNP"];
+                break;
+            case vins.FAIL_ALIGN:
+                stringView = [NSString stringWithFormat:@"STA: FAIL_ALIGN"];
+                break;
+            case vins.FAIL_CHECK:
+                stringView = [NSString stringWithFormat:@"STA: FAIL_COST"];
+                break;
+            case vins.SUCC:
+                stringView = [NSString stringWithFormat:@"STA: SUCC!"];
+                break;
+            default:
+                break;
+        }
+        [_X_label setText:stringView];
+        stringView = [NSString stringWithFormat:@"FAIL: %d times", vins.fail_times];
+        [_Y_label setText:stringView];
+        stringView = [NSString stringWithFormat:@"PARALLAX: %d", vins.parallax_num_view];
+        [_Z_label setText:stringView];
+    }
+    else
+    {
+        float x_view = (float)vins.correct_Ps[frame_cnt][0];
+        float y_view = (float)vins.correct_Ps[frame_cnt][1];
+        float z_view = (float)vins.correct_Ps[frame_cnt][2];
+        if(x_view_last == -5000)
+        {
+            x_view_last = x_view;
+            y_view_last = y_view;
+            z_view_last = z_view;
+        }
+        total_odom += sqrt(pow((x_view - x_view_last), 2) +
+                           pow((y_view - y_view_last), 2) +
+                           pow((z_view - z_view_last), 2));
+        x_view_last = x_view;
+        y_view_last = y_view;
+        z_view_last = z_view;
+        
+        stringView = [NSString stringWithFormat:@"X:%.2f",x_view];
+        [_X_label setText:stringView];
+        stringView = [NSString stringWithFormat:@"TOTAL:%.2f",total_odom];
+        //stringView = [NSString stringWithFormat:@"COST:%.2lf",vins.final_cost];
+        //stringView = [NSString stringWithFormat:@"COST: %d, %.2lf",vins.visual_factor_num, vins.visual_cost];
+        [_total_odom_label setText:stringView];
+        stringView = [NSString stringWithFormat:@"Y:%.2f",y_view];
+        [_Y_label setText:stringView];
+        stringView = [NSString stringWithFormat:@"Z:%.2f",z_view];
+        [_Z_label setText:stringView];
+    }
+    stringView = [NSString stringWithFormat:@"BUF:%d",waiting_lists];
+    [_buf_label setText:stringView];
+    //NSString *stringZ = [NSString stringWithFormat:@"Z:%.2f",z_view, vins.f_manager.getFeatureCount()];
+    if(old_index != -1)
+    {
+        stringView = [NSString stringWithFormat:@"LOOP with %d",old_index];
+        [_loop_label setText:stringView];
+    }
+    stringView = [NSString stringWithFormat:@"FEATURE: %d",vins.feature_num];
+    [_feature_label setText:stringView];
+}
+
+-(void)showOutputImage:(UIImage*)image
+{
+    [featureImageView setImage:image];
+}
+/********************************************************************UI View Controler********************************************************************/
+
+
+/********************************************************************UI Button Controler********************************************************************/
 - (void) handlePan:(UIPanGestureRecognizer*) recognizer
 {
     if(ui_main and 0)
@@ -1515,10 +1423,6 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     }
 }
 
-/**************************************************************UI**********************************************************/
-
-/**************************************************************SAVE DATA**********************************************************/
-
 - (IBAction)recordButtonPressed:(id)sender {
     if(LOOP_CLOSURE)
     {
@@ -1531,24 +1435,24 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
         [_recordButton setTitle:@"UNLOOP" forState:UIControlStateNormal];
     }
     /*
-    start_record = !start_record;
-    if(start_record)
-    {
-        start_playback = false;
-        [_recordButton setTitle:@"Stop" forState:UIControlStateNormal];
-        [saveData start];
-    }
-    else
-    {
-        TS(record_imu);
-        imuData.header = 0; // as the ending marker
-        imuData.acc << 0,0,0;
-        imuData.gyr << 0,0,0;
-        [imuDataBuf appendBytes:&imuData length:sizeof(imuData)];
-        [self recordImu];
-        TE(record_imu);
-        [_recordButton setTitle:@"Record" forState:UIControlStateNormal];
-    }
+     start_record = !start_record;
+     if(start_record)
+     {
+     start_playback = false;
+     [_recordButton setTitle:@"Stop" forState:UIControlStateNormal];
+     [saveData start];
+     }
+     else
+     {
+     TS(record_imu);
+     imuData.header = 0; // as the ending marker
+     imuData.acc << 0,0,0;
+     imuData.gyr << 0,0,0;
+     [imuDataBuf appendBytes:&imuData length:sizeof(imuData)];
+     [self recordImu];
+     TE(record_imu);
+     [_recordButton setTitle:@"Record" forState:UIControlStateNormal];
+     }
      */
 }
 
@@ -1560,21 +1464,65 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     keyframe_database.max_seg_index++;
     keyframe_database.cur_seg_index = keyframe_database.max_seg_index;
     /*
-    start_playback = !start_playback;
-    if(start_playback)
-    {
-        //TS(read_imu);
-        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-        NSString *documentsPath = [paths objectAtIndex:0];
-        NSString *filePath = [documentsPath stringByAppendingPathComponent:@"IMU"]; //Add the file name
-        imuReader = [NSData dataWithContentsOfFile:filePath];
-        //TE(read_imu);
-        start_record = false;
-        [_playbackButton setTitle:@"Stop" forState:UIControlStateNormal];
-    }
-    else
-        [_playbackButton setTitle:@"Playback" forState:UIControlStateNormal];
+     start_playback = !start_playback;
+     if(start_playback)
+     {
+     //TS(read_imu);
+     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+     NSString *documentsPath = [paths objectAtIndex:0];
+     NSString *filePath = [documentsPath stringByAppendingPathComponent:@"IMU"]; //Add the file name
+     imuReader = [NSData dataWithContentsOfFile:filePath];
+     //TE(read_imu);
+     start_record = false;
+     [_playbackButton setTitle:@"Stop" forState:UIControlStateNormal];
+     }
+     else
+     [_playbackButton setTitle:@"Playback" forState:UIControlStateNormal];
      */
+}
+
+/********************************************************************UI Button Controler********************************************************************/
+
+
+/***********************************************************About record and playback data for debug********************************************************/
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+-(void)saveData{
+    while (![[NSThread currentThread] isCancelled])
+    {
+        @autoreleasepool
+        {
+            if(!imgDataBuf.empty())
+            {
+                IMG_DATA tmp_data;
+                tmp_data = imgDataBuf.front();
+                imgDataBuf.pop();
+                [self recordImageTime:tmp_data];
+                [self recordImage:tmp_data];
+                imageDataIndex++;
+                //NSLog(@"record: %lf %lu",tmp_data.header,imageDataIndex);
+            }
+        }
+        [NSThread sleepForTimeInterval:0.04];
+    }
+}
+
+- (void)tapSaveImageToIphone:(UIImage*)image
+{
+    UIImageWriteToSavedPhotosAlbum(image, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
+}
+
+- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo{
+    
+    if (error == nil) {
+        NSLog(@"save access");
+    }else{
+        NSLog(@"save failed");
+    }
 }
 
 - (void)checkDirectoryPath:(unsigned long)index withObject:(NSString*)directoryPath
@@ -1654,13 +1602,13 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     //check file exists
     if ([[NSFileManager defaultManager] fileExistsAtPath:filePath])
     {
-         NSData *file1 = [[NSData alloc] initWithContentsOfFile:filePath];
-         if (file1)
-         {
-             double time;
-             [file1 getBytes:&time length:sizeof(time)];
-             imgData.header = time;
-         }
+        NSData *file1 = [[NSData alloc] initWithContentsOfFile:filePath];
+        if (file1)
+        {
+            double time;
+            [file1 getBytes:&time length:sizeof(time)];
+            imgData.header = time;
+        }
         file_exist = true;
     }
     else
@@ -1694,11 +1642,7 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     return file_exist;
 }
 
-/**************************************************************SAVE DATA**********************************************************/
-- (void)didReceiveMemoryWarning {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
-}
+/**************************************************************About record and playback data for debug**********************************************************/
 
 - (void)viewDidDisappear:(BOOL)animated
 {
@@ -1726,6 +1670,71 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
 - (void)dealloc
 {
     videoCamera.delegate = nil;
+}
+
+/*
+ Check the device
+ */
+DeviceType deviceName()
+{
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    
+    NSString *device = [NSString stringWithCString:systemInfo.machine
+                                          encoding:NSUTF8StringEncoding];
+    DeviceType device_type;
+    if(([device compare:@"iPhone9,1"] == NSOrderedSame) ||
+       ([device compare:@"iPhone9,3"] == NSOrderedSame))
+    {
+        printf("Device iPhone7\n");
+        device_type = iPhone7;
+    }
+    else if(([device compare:@"iPhone9,2"] == NSOrderedSame) ||
+            ([device compare:@"iPhone9,4"] == NSOrderedSame))
+    {
+        printf("Device iPhone7 plus\n");
+        device_type = iPhone7P;
+    }
+    else if(([device compare:@"iPhone8,2"] == NSOrderedSame))
+    {
+        printf("Device iPhone6s plus\n");
+        device_type = iPhone6sP;
+    }
+    else if(([device compare:@"iPhone8,1"] == NSOrderedSame))
+    {
+        printf("Device iPhone6s\n");
+        device_type = iPhone6s;
+    }
+    else if(([device compare:@"iPad6,3"] == NSOrderedSame)||
+            ([device compare:@"iPad6,4"] == NSOrderedSame))
+    {
+        printf("Device iPad pro 9.7\n");
+        device_type = iPadPro97;
+    }
+    else if(([device compare:@"iPad6,7"] == NSOrderedSame)||
+            ([device compare:@"iPad6,8"] == NSOrderedSame))
+    {
+        printf("Device iPad pro 12.9\n");
+        device_type = iPadPro129;
+    }
+    else
+    {
+        printf("Device undefine\n");
+        device_type = unDefine;
+    }
+    return device_type;
+}
+
+bool iosVersion()
+{
+    NSComparisonResult order = [[UIDevice currentDevice].systemVersion compare: @"10.2.1" options: NSNumericSearch];
+    if (order == NSOrderedSame || order == NSOrderedDescending) {
+        printf("system version >= 10.2.1\n");
+        return true;
+    } else {
+        printf("system version < 10.2.1\n");
+        return false;
+    }
 }
 
 @end
