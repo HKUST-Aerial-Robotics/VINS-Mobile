@@ -187,7 +187,7 @@
 		C2442F8F1EBE137600008A26 /* triangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = triangle.h; path = delaunay/triangle.h; sourceTree = "<group>"; };
 		C2442F901EBE137600008A26 /* vector2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vector2.h; path = delaunay/vector2.h; sourceTree = "<group>"; };
 		C25458E81DB8D0920011DF1C /* global_param.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = global_param.hpp; sourceTree = "<group>"; };
-		C25458F31DBB279B0011DF1C /* libceres.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libceres.a; path = "../../../ceres-solver/ceres-bin/lib/libceres.a"; sourceTree = "<group>"; };
+		C25458F31DBB279B0011DF1C /* libceres.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libceres.a; path = "VINS_ThirdPartyLib/ceres-solver/ceres-bin/lib/libceres.a"; sourceTree = "<group>"; };
 		C25458F61DBB28E20011DF1C /* projection_facor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = projection_facor.cpp; sourceTree = "<group>"; };
 		C25458F71DBB28E20011DF1C /* projection_facor.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = projection_facor.hpp; sourceTree = "<group>"; };
 		C25458FA1DBB2D240011DF1C /* utility.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = utility.cpp; sourceTree = "<group>"; };
@@ -645,7 +645,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0800;
-				ORGANIZATIONNAME = "栗大人";
+				ORGANIZATIONNAME = "Kai Sun";
 				TargetAttributes = {
 					8AB3747A1E6BA37400C1E398 = {
 						CreatedOnToolsVersion = 8.2.1;
@@ -654,7 +654,7 @@
 					};
 					C2B5373B1DB6491D00E235BC = {
 						CreatedOnToolsVersion = 8.0;
-						DevelopmentTeam = 59LPDRL4NH;
+						DevelopmentTeam = M97RTV2PQG;
 						ProvisioningStyle = Automatic;
 					};
 					C2B537571DB6491D00E235BC = {
@@ -1041,10 +1041,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = 59LPDRL4NH;
+				DEVELOPMENT_TEAM = M97RTV2PQG;
 				INFOPLIST_FILE = VINS_ios/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = "mobile.VINS-ios";
+				PRODUCT_BUNDLE_IDENTIFIER = "mobile.VINS-ios.sunkai";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1053,10 +1053,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = 59LPDRL4NH;
+				DEVELOPMENT_TEAM = M97RTV2PQG;
 				INFOPLIST_FILE = VINS_ios/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = "mobile.VINS-ios";
+				PRODUCT_BUNDLE_IDENTIFIER = "mobile.VINS-ios.sunkai";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
