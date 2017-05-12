@@ -155,7 +155,7 @@ float total_odom = 0;
     
     isCapturing = NO;
     
-    [CameraUtils setExposureOffset: 0.0f];
+    [CameraUtils setExposureOffset: -1.0f];
     [videoCamera start];
     
     /***************************************UI configuration*****************************************/
