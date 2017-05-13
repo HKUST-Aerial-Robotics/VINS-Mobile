@@ -86,6 +86,8 @@ public:
     
     void detectLoop(int index);
     
+    void removeLoop();
+    
     int HammingDis(const BRIEF::bitset &a, const BRIEF::bitset &b);
     
 	// data 

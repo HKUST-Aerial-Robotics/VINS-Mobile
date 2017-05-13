@@ -359,6 +359,11 @@ void KeyFrame::detectLoop(int index)
     loop_index = index;
 }
 
+void KeyFrame::removeLoop()
+{
+    has_loop = false;
+}
+
 int KeyFrame::HammingDis(const BRIEF::bitset &a, const BRIEF::bitset &b)
 {
     BRIEF::bitset xor_of_bitset = a ^ b;

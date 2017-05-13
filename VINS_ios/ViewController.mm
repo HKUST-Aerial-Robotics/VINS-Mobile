@@ -746,6 +746,12 @@ bool start_global_optimization = false;
                     if(vins.Headers[i] == vins.front_pose.header)
                     {
                         KeyFrame* cur_kf = keyframe_database.getKeyframe(vins.front_pose.cur_index);
+                        if (abs(vins.front_pose.relative_yaw) > 30.0 || vins.front_pose.relative_t.norm() > 10.0)
+                        {
+                            printf("Wrong loop\n");
+                            cur_kf->removeLoop();
+                            break;
+                        }
                         cur_kf->updateLoopConnection(vins.front_pose.relative_t,
                                                      vins.front_pose.relative_q,
                                                      vins.front_pose.relative_yaw);
