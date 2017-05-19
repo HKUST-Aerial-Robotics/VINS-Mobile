@@ -11,12 +11,20 @@
 #import "CameraUtils.h"
 
 #if VINS_FRAMEWORK
-    //#import "VINSUnityAPI.h"
-    #define ENABLE_IMU_PRIDICT true //only enbale in (glass mode) && (Unity_iPhone)
+#import "VINSUnityAPI.h"
+/*for Unity_iPhone, choose camera mode or glass mode
+ if true: camera mode, visualization use alighed image and vins result, neither is the latest result
+ if false: glass mode, visulization use latest vins result and glasses real image
+ */
+//#define CAMERA_MODE true
+#define ENABLE_IMU_PRIDICT true //only enbale in (glass mode) && (Unity_iPhone)
 
 #else
-    #define ENABLE_IMU_PRIDICT false
-    //#define DATA_EXPORT true
+//for VINS_ios, use camera mode and disable imu predict by default
+//don't change
+//#define CAMERA_MODE true
+#define ENABLE_IMU_PRIDICT false
+//#define DATA_EXPORT true
 #endif
 
 @interface ViewController ()
@@ -29,7 +37,8 @@
 @property (weak, nonatomic) IBOutlet UILabel *loop_label;
 @property (weak, nonatomic) IBOutlet UIButton *stop_button;
 @property (weak, nonatomic) IBOutlet UILabel *feature_label;
-
+@property (weak, nonatomic) IBOutlet UILabel *feature_label2;
+@property (weak, nonatomic) IBOutlet UILabel *feature_label3;
 @property (weak, nonatomic) IBOutlet UISlider *fovSlider;
 @property (weak, nonatomic) IBOutlet UILabel *fovLabel;
 
@@ -56,12 +65,13 @@ int frame_cnt = 0;
 
 /******************************* UI CONFIG *******************************/
 bool ui_main = false;  // true: UI is the main view, origin image is in left bottom
-                      // false: origin is the main view, UI is in left bottom
+// false: origin is the main view, UI is in left bottom
 bool box_in_AR = false;
 bool box_in_trajectory = false;
 bool CAMERA_MODE = true;
 bool SHOW_TRACK = true;
 bool start_show = false;
+UIActivityIndicatorView *indicator;
 /******************************* UI CONFIG *******************************/
 
 UIImage *image_ui;
@@ -92,13 +102,18 @@ CMMotionManager *motionManager;
 //for save data
 bool start_record = false;
 bool start_playback = false;
+bool start_playback_vins = false;
 unsigned long imageDataIndex = 0;
 unsigned long imageDataReadIndex = 0;
 unsigned long imuDataIndex = 0;
 unsigned long imuDataReadIndex = 0;
+unsigned long vinsDataIndex = 0;
+unsigned long vinsDataReadIndex = 0;
 queue<IMG_DATA> imgDataBuf;
 NSMutableData *imuDataBuf = [[NSMutableData alloc] init];
 NSData *imuReader;
+NSMutableData *vinsDataBuf = [[NSMutableData alloc] init];
+NSData *vinsReader;
 IMG_DATA imgData;
 IMU_MSG imuData;
 
@@ -143,7 +158,7 @@ float total_odom = 0;
     self.videoCamera.delegate = self;
     self.videoCamera.defaultAVCaptureDevicePosition =
     AVCaptureDevicePositionBack;
-
+    
     self.videoCamera.defaultAVCaptureVideoOrientation = AVCaptureVideoOrientationPortrait;
     self.videoCamera.defaultAVCaptureSessionPreset =
     AVCaptureSessionPreset640x480;
@@ -160,25 +175,25 @@ float total_odom = 0;
     
     /***************************************UI configuration*****************************************/
     UIPanGestureRecognizer *resultPanGestureRecognizer = [[UIPanGestureRecognizer alloc]
-                                                    initWithTarget:self
-                                                    action:@selector(handlePan:)];
+                                                          initWithTarget:self
+                                                          action:@selector(handlePan:)];
     resultPanGestureRecognizer.minimumNumberOfTouches = 1;
     resultPanGestureRecognizer.maximumNumberOfTouches = 2;
     [self.imageView addGestureRecognizer:resultPanGestureRecognizer];
     
     UIPinchGestureRecognizer *resultPinchGestureRecognizer = [[UIPinchGestureRecognizer alloc]
-                                                        initWithTarget:self
-                                                        action:@selector(handlePinch:)];
+                                                              initWithTarget:self
+                                                              action:@selector(handlePinch:)];
     [self.imageView addGestureRecognizer:resultPinchGestureRecognizer];
     
     UITapGestureRecognizer *resultTapGestureRecognizer = [[UITapGestureRecognizer alloc]
-                                                              initWithTarget:self
-                                                              action:@selector(handleTap:)];
+                                                          initWithTarget:self
+                                                          action:@selector(handleTap:)];
     [self.imageView addGestureRecognizer:resultTapGestureRecognizer];
     
     UILongPressGestureRecognizer *resultLongPressGestureRecognizer = [[UILongPressGestureRecognizer alloc]
-                                                                     initWithTarget:self
-                                                                     action:@selector(handleLongPress:)];
+                                                                      initWithTarget:self
+                                                                      action:@selector(handleLongPress:)];
     [self.imageView addGestureRecognizer:resultLongPressGestureRecognizer];
     
     if (!feature_tracker)
@@ -195,8 +210,13 @@ float total_odom = 0;
     startButton.enabled = YES;
     _stopButton.enabled = NO;
     alertView = [[UIAlertView alloc]initWithTitle:@"WARN" message:@"please wait for vocabulary loading!"
-                            delegate:self cancelButtonTitle:@"confirm" otherButtonTitles:@"cancel", nil];
+                                         delegate:self cancelButtonTitle:@"confirm" otherButtonTitles:@"cancel", nil];
     
+    indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    indicator.center = CGPointMake(self.imageView.frame.size.width * 0.5, self.imageView.frame.size.height * 0.22);
+    indicator.color = [UIColor darkGrayColor];
+    [indicator startAnimating];
+    [self.view addSubview:indicator];
     
     /****************************************Init all the thread****************************************/
     _condition=[[NSCondition alloc] init];
@@ -205,7 +225,7 @@ float total_odom = 0;
     
     saveData=[[NSThread alloc]initWithTarget:self selector:@selector(saveData) object:nil];
     [saveData setName:@"saveData"];
-
+    
     if(LOOP_CLOSURE)
     {
         //loop closure thread
@@ -223,7 +243,7 @@ float total_odom = 0;
     if(!deviceCheck)
     {
         UIAlertController *alertDevice = [UIAlertController alertControllerWithTitle:@"Error"
-                    message:@"Unsupported Device!" preferredStyle:UIAlertControllerStyleAlert];
+                                                                             message:@"Unsupported Device!" preferredStyle:UIAlertControllerStyleAlert];
         UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action)
                                        {exit(0);}];
         UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action)
@@ -240,7 +260,7 @@ float total_odom = 0;
     if(!versionCheck)
     {
         UIAlertController *alertVersion = [UIAlertController alertControllerWithTitle:@"Warn"
-                                          message:@"Please upgrade your iOS version!" preferredStyle:UIAlertControllerStyleAlert];
+                                                                              message:@"Please upgrade your iOS version!" preferredStyle:UIAlertControllerStyleAlert];
         UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action)
                                        {exit(0);}];
         UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action)
@@ -353,7 +373,7 @@ bool vins_updated = false;
         }
         
         prevTime = mach_absolute_time();
-
+        
         cv::Mat gray;
         cv::cvtColor(input_frame, gray, CV_RGBA2GRAY);
         cv::Mat img_with_feature;
@@ -363,7 +383,7 @@ bool vins_updated = false;
         clahe->apply(gray, img_equa);
         //img_equa = gray;
         TS(time_feature);
-
+        
         vector<Point2f> good_pts;
         vector<double> track_len;
         featuretracker.readImage(img_equa, img_with_feature,frame_cnt, good_pts, track_len);
@@ -468,7 +488,7 @@ bool vins_updated = false;
         {
 #if VINS_FRAMEWORK
             if (CAMERA_MODE || vins.solver_flag != VINS::NON_LINEAR) {
-                //VINSUnityAPI::UpdateBackgroundTexture(image);
+                VINSUnityAPI::UpdateBackgroundTexture(image);
             }
 #else
             if(CAMERA_MODE)
@@ -480,7 +500,7 @@ bool vins_updated = false;
                     vins.drawresult.startInit = true;
                     vins.drawresult.drawAR(lateast_equa, vins.imageAI, vins.correct_point_cloud, lateast_P, lateast_R, vins_updated);
                     vins_updated = false;
-            
+                    
                     cv::cvtColor(image, tmp, CV_RGBA2BGR);
                     cv::Mat mask;
                     cv::Mat imageAI = vins.imageAI;
@@ -536,7 +556,7 @@ bool vins_updated = false;
     } else {
         // Not capturing, means not started yet
 #if VINS_FRAMEWORK
-        //VINSUnityAPI::UpdateBackgroundTexture(image);
+        VINSUnityAPI::UpdateBackgroundTexture(image);
 #else
         cv::cvtColor(image, image, CV_BGRA2RGB);
         cv::flip(image,image,-1);
@@ -549,8 +569,8 @@ bool vins_updated = false;
 
 
 /*
-   Send imu data and visual data into VINS
-*/
+ Send imu data and visual data into VINS
+ */
 std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>>
 getMeasurements()
 {
@@ -624,9 +644,9 @@ void update()
 }
 
 /*
-   VINS thread: this thread tightly fuses the visual measurements and imu data and solves pose, velocity, IMU bias, 3D feature for all frame in WINNDOW
-                If the newest frame is keyframe, then push it into keyframe database
-*/
+ VINS thread: this thread tightly fuses the visual measurements and imu data and solves pose, velocity, IMU bias, 3D feature for all frame in WINNDOW
+ If the newest frame is keyframe, then push it into keyframe database
+ */
 -(void)run{
     [_condition lock];
     while (![[NSThread currentThread] isCancelled])
@@ -686,8 +706,14 @@ bool start_global_optimization = false;
                 vins_data_cache.R = vins.correct_Rs[WINDOW_SIZE-1];
                 vins_pool.push(vins_data_cache);
             }
-            else if(vins.need_recover == true)
+            else if(vins.failure_occur == true)
             {
+                vins.drawresult.change_color = true;
+                vins.drawresult.indexs.push_back(vins.drawresult.pose.size());
+                segmentation_index++;
+                keyframe_database.max_seg_index++;
+                keyframe_database.cur_seg_index = keyframe_database.max_seg_index;
+                
                 while(!vins_pool.empty())
                     vins_pool.pop();
             }
@@ -798,7 +824,7 @@ bool start_global_optimization = false;
 
 /*
  Loop detection thread: this thread detect loop for newest keyframe and retrieve features
-*/
+ */
 -(void)loop_thread{
     
     if(LOOP_CLOSURE && loop_closure == NULL)
@@ -895,14 +921,14 @@ bool start_global_optimization = false;
         {
             i_buf.unlock();
         }
-        [NSThread sleepForTimeInterval:0.1];
+        [NSThread sleepForTimeInterval:0.05];
     }
     //[self process_loop_detection];
 }
 
 /*
-  GLobal Pose graph thread: optimize global pose graph based on realative pose from vins and update the keyframe database
-*/
+ GLobal Pose graph thread: optimize global pose graph based on realative pose from vins and update the keyframe database
+ */
 -(void)globalLoopThread{
     while (![[NSThread currentThread] isCancelled])
     {
@@ -916,21 +942,23 @@ bool start_global_optimization = false;
             vins.t_drift = loop_correct_t;
             vins.r_drift = loop_correct_r;
             TE(debug_loop_thread);
+            [NSThread sleepForTimeInterval:0.17];
         }
-        [NSThread sleepForTimeInterval:0.1];
+        [NSThread sleepForTimeInterval:0.03];
     }
 }
 
 /*
  Z^
-  |   /Y
-  |  /
-  | /
-  |/--------->X
-  IMU data process and interploration
+ |   /Y
+ |  /
+ | /
+ |/--------->X
+ IMU data process and interploration
  
-*/
+ */
 bool imuDataFinished = false;
+bool vinsDataFinished = false;
 shared_ptr<IMU_MSG> cur_acc(new IMU_MSG());
 vector<IMU_MSG> gyro_buf;  // for Interpolation
 - (void)imuStartUpdate
@@ -950,12 +978,12 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     [motionManager startDeviceMotionUpdates];
     
     [motionManager startAccelerometerUpdatesToQueue:[NSOperationQueue currentQueue]
-    withHandler:^(CMAccelerometerData *latestAcc, NSError *error)
+                                        withHandler:^(CMAccelerometerData *latestAcc, NSError *error)
      {
          double header = motionManager.deviceMotion.timestamp;
          rotation_imu << motionManager.deviceMotion.attitude.yaw * 180.0 / M_PI,  //yaw
-                         motionManager.deviceMotion.attitude.roll * 180.0 / M_PI,  //pitch for vins
-                         motionManager.deviceMotion.attitude.pitch * 180.0 / M_PI;  //roll for vins
+         motionManager.deviceMotion.attitude.roll * 180.0 / M_PI,  //pitch for vins
+         motionManager.deviceMotion.attitude.pitch * 180.0 / M_PI;  //roll for vins
          if(imu_prepare<10)
          {
              imu_prepare++;
@@ -981,8 +1009,8 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
          IMU_MSG gyro_msg;
          gyro_msg.header = header;
          gyro_msg.gyr << latestGyro.rotationRate.x,
-                          latestGyro.rotationRate.y,
-                          latestGyro.rotationRate.z;
+         latestGyro.rotationRate.y,
+         latestGyro.rotationRate.z;
          
          if(gyro_buf.size() == 0)
          {
@@ -1106,8 +1134,10 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
 - (void)showInputView
 {
     NSString *stringView;
+    static bool finish_init = false;
     if(vins.solver_flag != vins.NON_LINEAR)
     {
+        finish_init = false;
         switch (vins.init_status) {
             case vins.FAIL_IMU:
                 stringView = [NSString stringWithFormat:@"STA: FAIL_IMU"];
@@ -1141,9 +1171,33 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
         [_Y_label setText:stringView];
         stringView = [NSString stringWithFormat:@"PARALLAX: %d", vins.parallax_num_view];
         [_Z_label setText:stringView];
+        
+        stringView = [NSString stringWithFormat:@"Initializing: %d%%", vins.initProgress];
+        [_feature_label2 setText:stringView];
+        
+        [_feature_label2 setHidden:NO];
+        [_feature_label3 setHidden:NO];
+        [indicator setHidden:NO];
+        [featureImageView setHidden:NO];
     }
     else
     {
+        if(finish_init == false)
+        {
+            //Hide init UI
+            [_feature_label2 setHidden:YES];
+            [_feature_label3 setHidden:YES];
+            [indicator setHidden:YES];
+            [featureImageView setHidden:YES];
+            
+            startButton.enabled = false;
+            _stopButton.enabled = true;
+            
+            start_active = false;
+            start_show = true;
+            finish_init = true;
+        }
+        
         float x_view = (float)vins.correct_Ps[frame_cnt][0];
         float y_view = (float)vins.correct_Ps[frame_cnt][1];
         float z_view = (float)vins.correct_Ps[frame_cnt][2];
@@ -1204,6 +1258,7 @@ bool start_active = true;
     }
     else if(start_active)
     {
+        start_playback_vins = true;
         startButton.enabled = false;
         _stopButton.enabled = true;
         
@@ -1255,7 +1310,7 @@ bool start_active = true;
     self.fovLabel.text = [[NSNumber numberWithFloat:self.fovSlider.value] stringValue];
     
 #if VINS_FRAMEWORK
-    //VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
+    VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
 #endif
 }
 
@@ -1266,31 +1321,31 @@ bool start_active = true;
     
     if (!ui_main)
     {
-    CGPoint translation = [recognizer translationInView:self.view];
-    CGFloat velocityX = [recognizer velocityInView:self.view].x;
-    CGFloat velocityY = [recognizer velocityInView:self.view].y;
-    //recognizer.view.center = CGPointMake(recognizer.view.center.x + translation.x,
-    static CGFloat vx_last = 0;
-    static CGFloat vy_last = 0;
-    
-    CGFloat vx_smooth = 0.5*velocityX + 0.5*vx_last;
-    CGFloat vy_smooth = 0.5*velocityY + 0.5*vy_last;
-    vx_last = vx_smooth;
-    vy_last = vy_smooth;
-    if(recognizer.numberOfTouches == 2)
-    {
-        vins.drawresult.Y0 += vx_smooth/100.0;
-        vins.drawresult.X0 += vy_smooth/100.0;
-    }
-    else
-    {
-        vins.drawresult.theta += vy_smooth/100.0;
-        vins.drawresult.theta = fmod(vins.drawresult.theta, 360.0);
-        vins.drawresult.phy += vx_smooth/100.0;
-        vins.drawresult.phy = fmod(vins.drawresult.phy, 360.0);
-    }
-    
-    vins.drawresult.change_view_manualy = true;
+        CGPoint translation = [recognizer translationInView:self.view];
+        CGFloat velocityX = [recognizer velocityInView:self.view].x;
+        CGFloat velocityY = [recognizer velocityInView:self.view].y;
+        //recognizer.view.center = CGPointMake(recognizer.view.center.x + translation.x,
+        static CGFloat vx_last = 0;
+        static CGFloat vy_last = 0;
+        
+        CGFloat vx_smooth = 0.5*velocityX + 0.5*vx_last;
+        CGFloat vy_smooth = 0.5*velocityY + 0.5*vy_last;
+        vx_last = vx_smooth;
+        vy_last = vy_smooth;
+        if(recognizer.numberOfTouches == 2)
+        {
+            vins.drawresult.Y0 += vx_smooth/100.0;
+            vins.drawresult.X0 += vy_smooth/100.0;
+        }
+        else
+        {
+            vins.drawresult.theta += vy_smooth/100.0;
+            vins.drawresult.theta = fmod(vins.drawresult.theta, 360.0);
+            vins.drawresult.phy += vx_smooth/100.0;
+            vins.drawresult.phy = fmod(vins.drawresult.phy, 360.0);
+        }
+        
+        vins.drawresult.change_view_manualy = true;
     }
     else
     {
@@ -1304,7 +1359,7 @@ bool start_active = true;
         CGPoint point = [recognizer locationInView:self.view];
         //NSLog(@"X Location: %f", point.x);
         //NSLog(@"Y Location: %f",point.y);
-
+        
         //recognizer.view.center = CGPointMake(recognizer.view.center.x + translation.x,
         static CGFloat vx_lastAR = 0;
         static CGFloat vy_lastAR = 0;
@@ -1344,7 +1399,7 @@ bool start_active = true;
         }
     }
     
-
+    
 }
 
 - (void) handlePinch:(UIPinchGestureRecognizer*) recognizer
@@ -1354,18 +1409,18 @@ bool start_active = true;
     
     if (!ui_main)
     {
-    vins.drawresult.change_view_manualy = true;
-    if(vins.drawresult.radius > 5 || recognizer.velocity < 0)
-        vins.drawresult.radius -= recognizer.velocity * 0.5;
-    else
-    {
-        vins.drawresult.Fx += recognizer.velocity * 15;
-        if(vins.drawresult.Fx < 50)
-            vins.drawresult.Fx = 50;
-        vins.drawresult.Fy += recognizer.velocity * 15;
-        if(vins.drawresult.Fy < 50)
-            vins.drawresult.Fy = 50;
-    }
+        vins.drawresult.change_view_manualy = true;
+        if(vins.drawresult.radius > 5 || recognizer.velocity < 0)
+            vins.drawresult.radius -= recognizer.velocity * 0.5;
+        else
+        {
+            vins.drawresult.Fx += recognizer.velocity * 15;
+            if(vins.drawresult.Fx < 50)
+                vins.drawresult.Fx = 50;
+            vins.drawresult.Fy += recognizer.velocity * 15;
+            if(vins.drawresult.Fy < 50)
+                vins.drawresult.Fy = 50;
+        }
     }
     else{
         
@@ -1382,7 +1437,7 @@ bool start_active = true;
         
         //if(vins.drawresult.radiusAR > 5 || recognizer.velocity < 0)
         //{
-            vins.drawresult.radiusAR -= recognizer.velocity * 0.5;
+        vins.drawresult.radiusAR -= recognizer.velocity * 0.5;
         //}
     }
     
@@ -1392,14 +1447,14 @@ bool start_active = true;
 {
     if (!ui_main)
     {
-
+        
     }
     else{
         
         /*vins.drawresult.finger_s = 0;
-        vins.drawresult.finger_d = 0;
-        if ((vins.drawresult.finger_p ++) > 7)
-            vins.drawresult.finger_state = 3;*/
+         vins.drawresult.finger_d = 0;
+         if ((vins.drawresult.finger_p ++) > 7)
+         vins.drawresult.finger_state = 3;*/
         
         CGPoint point = [recognizer locationInView:self.view];
         vins.drawresult.locationTapX = point.x * 640.0 / imageView.frame.size.width;
@@ -1408,7 +1463,7 @@ bool start_active = true;
         vins.drawresult.tapFlag = true;
         
     }
-
+    
 }
 
 - (void) handleLongPress:(UILongPressGestureRecognizer*) recognizer
@@ -1563,6 +1618,16 @@ bool start_active = true;
     //[msgData writeToFile:filePath atomically:YES];
 }
 
+- (void)recordVins
+{
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsPath = [paths objectAtIndex:0];
+    NSString *filePath = [documentsPath stringByAppendingPathComponent:@"VINS"]; //Add the file name
+    
+    [vinsDataBuf writeToFile:filePath atomically:YES];
+    //[msgData writeToFile:filePath atomically:YES];
+}
+
 - (void)recordImageTime:(IMG_DATA&)image_data
 {
     double time = image_data.header;
@@ -1651,7 +1716,7 @@ bool start_active = true;
     [super viewDidAppear:animated];
     
 #if VINS_FRAMEWORK
-    //VINSUnityAPI::TestNativeTexture();
+    VINSUnityAPI::TestNativeTexture();
 #endif
 }
 
@@ -1777,13 +1842,13 @@ extern "C" {
             *qw = 1;
             return;
         }
-
+        
         if(!vins.drawresult.planeInit)
         {
             Vector3f model;
             vins.drawresult.computeAR(vins.correct_point_cloud, model);
             //model << 1.76, 0, 0;
-            cout << "plane: "<< model.transpose() << endl;
+            cout << "plane for unity: "<< model.transpose() << endl;
             model = Utility::Vins2Unity(model.cast<double>()).cast<float>();
             
             VINSUnityAPI::SetCameraSeeThrough(CAMERA_MODE);
@@ -1832,4 +1897,4 @@ extern "C" {
 
 
 #endif
- */
+*/

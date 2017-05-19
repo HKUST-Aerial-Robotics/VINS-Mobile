@@ -195,7 +195,7 @@ bool SolveScale(map<double, ImageFrame> &all_image_frame, Vector3d &g, VectorXd 
     printf("estimated scale: %f\n", s);
     g = x.segment<3>(n_state - 4);
     cout << " result g     " << g.norm() << " " << g.transpose() << endl;
-    if(/*fabs(g.norm() - G_NORM) > G_THRESHOLD || */ s < 0)
+    if(fabs(g.norm() - G_NORM) > G_THRESHOLD ||  s < 0)
     {
         return false;
     }

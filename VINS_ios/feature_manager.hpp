@@ -72,11 +72,11 @@ class FeatureManager
 {
 public:
     FeatureManager(Matrix3d _Rs[]);
-    bool addFeatureCheckParallax(int frame_count, const map<int, Vector3d> &image_msg);
+    bool addFeatureCheckParallax(int frame_count, const map<int, Vector3d> &image_msg, int &parallax_num);
     vector<pair<Vector3d, Vector3d>> getCorresponding(int frame_count_l, int frame_count_r);
     void triangulate(Vector3d Ps[], Vector3d tic, Matrix3d ric, bool is_nonlinear);
     VectorXd getDepthVector();
-
+    
     int getFeatureCount();
     void clearState();
     void tagMarginalizedPoints(bool marginalization_flag);
@@ -92,12 +92,13 @@ public:
      */
     list<FeaturePerId> feature;
     std::vector<std::pair<int, std::vector<int>>> outlier_info;
-
+    int last_track_num;
+    
 private:
     double compensatedParallax1(FeaturePerId &it_per_id);
     double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
     const Matrix3d *Rs;
     Matrix3d ric;
-
+    
 };
 #endif /* feature_manager_hpp */

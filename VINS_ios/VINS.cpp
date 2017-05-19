@@ -11,14 +11,19 @@
 bool LOOP_CLOSURE = true;
 
 VINS::VINS()
-:f_manager{Rs},fail_times{0},need_recover(false),
-failure_hand{false},is_failure{false},
+:f_manager{Rs},fail_times{0},
+failure_hand{false},
      drawresult{0.0, 0.0, 0.0, 0.0, 0.0, 7.0}
 {
     printf("init VINS begins\n");
     t_drift.setZero();
     r_drift.setIdentity();
     clearState();
+    failure_occur = 0;
+    last_P.setZero();
+    last_R.setIdentity();
+    last_P_old.setZero();
+    last_R_old.setIdentity();
 }
 
 void VINS::setIMUModel()
@@ -28,13 +33,6 @@ void VINS::setIMUModel()
 
 void VINS::clearState()
 {
-    frame_count = 0;
-    first_imu = false;
-    solver_flag = INITIAL;
-    last_marginalization_info = nullptr;
-    initial_timestamp = 0;
-    all_image_frame.clear();
-    
     printf("clear state\n");
     for (int i = 0; i < 10 * (WINDOW_SIZE + 1); i++)
     {
@@ -49,11 +47,33 @@ void VINS::clearState()
         dt_buf[i].clear();
         linear_acceleration_buf[i].clear();
         angular_velocity_buf[i].clear();
+        
+        if (pre_integrations[i] != nullptr)
+        {
+            delete pre_integrations[i];
+        }
+        pre_integrations[i] = nullptr;
     }
     tic << TIC_X,
            TIC_Y,
            TIC_Z;
     ric = Utility::ypr2R(Vector3d(RIC_y,RIC_p,RIC_r));
+    
+    frame_count = 0;
+    first_imu = false;
+    solver_flag = INITIAL;
+    initial_timestamp = 0;
+    all_image_frame.clear();
+    initProgress = 0;
+    
+    if (tmp_pre_integration != nullptr)
+        delete tmp_pre_integration;
+    if (last_marginalization_info != nullptr)
+        delete last_marginalization_info;
+    
+    tmp_pre_integration = nullptr;
+    last_marginalization_info = nullptr;
+    last_marginalization_parameter_blocks.clear();
     
     f_manager.clearState();
     
@@ -62,11 +82,10 @@ void VINS::clearState()
 void VINS::setExtrinsic()
 {
     tic << TIC_X,
-    TIC_Y,
-    TIC_Z;
+           TIC_Y,
+           TIC_Z;
     ric = Utility::ypr2R(Vector3d(RIC_y,RIC_p,RIC_r));
 }
-
 void VINS::old2new()
 {
     for (int i = 0; i <= WINDOW_SIZE; i++)
@@ -114,6 +133,13 @@ void VINS::new2old()
     Vector3d origin_R0 = Utility::R2ypr(Rs[0]);
     
     Vector3d origin_P0 = Ps[0];
+    
+    if (failure_occur)
+    {
+        printf("failure recover %lf %lf %lf\n", last_P.x(), last_P.y(), last_P.z());
+        origin_R0 = Utility::R2ypr(last_R_old);
+        origin_P0 = last_P_old;
+    }
     
     Vector3d origin_R00 = Utility::R2ypr(Quaterniond(para_Pose[0][6],
                                                      para_Pose[0][3],
@@ -176,45 +202,60 @@ void VINS::new2old()
     f_manager.setDepth(dep);
 }
 
-void VINS::failureDetection()
+bool VINS::failureDetection()
 {
-    Vector3d P_error = Ps[1] - Ps[0];
-    double spatial_dis_last = P_error.lpNorm<2>();
-    bool is_failure =  true;
-    /*
-    for(int i = 2; i < WINDOW_SIZE; i++)
+    bool is_failure = false;
+    
+    if (f_manager.last_track_num < 4)
     {
-        P_error = Ps[i] - Ps[i-1];
-        spatial_dis = P_error.lpNorm<2>();
-        if(spatial_dis <= spatial_dis_last)
-        {
-            is_failure = false;
-        }
-        spatial_dis_last = spatial_dis;
-        //printf("failure %d %lf\n", i, spatial_dis);
+        printf("failure little feature %d\n", f_manager.last_track_num);
+        is_failure = true;
     }
-    */
-    //if(failure_hand || (is_failure && spatial_dis > 0.1))
+    /*
+    if (Bas[WINDOW_SIZE].norm() > 1)
+    {
+        printf("failure  big IMU acc bias estimation %f\n", Bas[WINDOW_SIZE].norm());
+        is_failure = true;
+    }
+     */
+    if (Bgs[WINDOW_SIZE].norm() > 1)
+    {
+        printf("failure  big IMU gyr bias estimation %f\n", Bgs[WINDOW_SIZE].norm());
+        is_failure = true;
+    }
+    Vector3d tmp_P = Ps[WINDOW_SIZE];
+    if ((tmp_P - last_P).norm() > 1)
+    {
+        printf("failure big translation\n");
+        is_failure = true;
+    }
+    if (abs(tmp_P.z() - last_P.z()) > 0.5)
+    {
+        printf("failure  big z translation\n");
+        is_failure = true;
+    }
+    Matrix3d tmp_R = Rs[WINDOW_SIZE];
+    Matrix3d delta_R = tmp_R.transpose() * last_R;
+    Quaterniond delta_Q(delta_R);
+    double delta_angle;
+    delta_angle = acos(delta_Q.w()) * 2.0 / 3.14 * 180.0;
+    if (delta_angle > 40)
+    {
+        printf("failure  big delta_angle \n");
+        is_failure = true;
+    }
+    
     if(failure_hand)
     {
         failure_hand = false;
-        solver_flag = INITIAL;
         is_failure = true;
-        delete last_marginalization_info;
-        last_marginalization_info = nullptr;
-        loop_enable = false;
-        for(int i = 0; i < WINDOW_SIZE; i++)
-        {
-            Ps_his[i] = Ps[i];
-            Rs_his[i] = Rs[i];
-            Headers_his[i] = Headers[i];
-            need_recover = true;
-        }
-        clearState();
-        printf("failure happend!\n");
+        printf("failure by hand!\n");
     }
+    
+    return is_failure;
 }
 
+/*
 void VINS::failureRecover()
 {
     int his_index = 0;
@@ -245,6 +286,13 @@ void VINS::failureRecover()
         Ps[i] = rot_diff * (Ps[i] - cur_P0) + his_P0;
         Vs[i] = rot_diff * Vs[i];
     }
+}
+ */
+
+void VINS::reInit()
+{
+    failure_hand = true;
+    failureDetection();
 }
 
 void VINS::update_loop_correction()
@@ -319,8 +367,9 @@ void VINS::processIMU(double dt, const Vector3d &linear_acceleration, const Vect
 
 void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_num)
 {
+    int track_num;
     printf("adding feature points %lu\n", image_msg.size());
-    if (f_manager.addFeatureCheckParallax(frame_count, image_msg))
+    if (f_manager.addFeatureCheckParallax(frame_count, image_msg, track_num))
         marginalization_flag = MARGIN_OLD;
     else
         marginalization_flag = MARGIN_SECOND_NEW;
@@ -328,7 +377,7 @@ void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_nu
 //    printf("marginalization_flag %d\n", int(marginalization_flag));
 //    printf("this frame is-------------------------------%s\n", marginalization_flag ? "reject" : "accept");
 //    printf("Solving %d\n", frame_count);
-    printf("number of feature: %d\n", feature_num = f_manager.getFeatureCount());
+    printf("number of feature: %d %d\n", feature_num = f_manager.getFeatureCount(), track_num);
     
     Headers[frame_count] = header;
 
@@ -341,6 +390,11 @@ void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_nu
         
         if (frame_count == WINDOW_SIZE)
         {
+            if(track_num < 20)
+            {
+                clearState();
+                return;
+            }
             bool result = false;
             if(header - initial_timestamp > 0.3)
             {
@@ -363,20 +417,20 @@ void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_nu
                 else
                 {
                     printf("final cost %lf succ!\n",final_cost);
-                    //failure recovering
-                    if(need_recover)
-                    {
-                        failureRecover();
-                        need_recover = false;
-                    }
+                    failure_occur = 0;
+                    //update init progress
+                    initProgress = 100;
                     init_status = SUCC;
                     fail_times = 0;
                     printf("Initialization finish---------------------------------------------------!\n");
                     solver_flag = NON_LINEAR;
                     slideWindow();
                     f_manager.removeFailures();
-                    failureDetection();
                     update_loop_correction();
+                    last_R = Rs[WINDOW_SIZE];
+                    last_P = Ps[WINDOW_SIZE];
+                    last_R_old = Rs[0];
+                    last_P_old = Ps[0];
                 }
             }
             else
@@ -385,18 +439,32 @@ void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_nu
             }
         }
         else
+        {
             frame_count++;
+            initProgress +=2;
+        }
     }
     else
     {
         bool is_nonlinear = true;
         f_manager.triangulate(Ps, tic, ric, is_nonlinear);
-        
         solve_ceres(buf_num);
+        failure_occur = 0;
+        
+        if (failureDetection())
+        {
+            failure_occur = 1;
+            clearState();
+            return;
+        }
         slideWindow();
         f_manager.removeFailures();
-        failureDetection();
         update_loop_correction();
+        
+        last_R = Rs[WINDOW_SIZE];
+        last_P = Ps[WINDOW_SIZE];
+        last_R_old = Rs[0];
+        last_P_old = Ps[0];
     }
 }
 
@@ -569,7 +637,7 @@ void VINS::solve_ceres(int buf_num)
     options.trust_region_strategy_type = ceres::DOGLEG;
     options.use_explicit_schur_complement = true;
     options.minimizer_progress_to_stdout = false;
-    //options.max_num_iterations = 10;
+    options.max_num_iterations = 10;
     //options.use_nonmonotonic_steps = true;
     if(buf_num<2)
         options.max_solver_time_in_seconds = SOLVER_TIME;
@@ -577,7 +645,7 @@ void VINS::solve_ceres(int buf_num)
         options.max_solver_time_in_seconds = SOLVER_TIME * 2.0 / 3.0;
     else
         options.max_solver_time_in_seconds = SOLVER_TIME / 2.0;
-
+//    options.max_solver_time_in_seconds = 0.04;
     ceres::Solver::Summary summary;
     //TE(prepare_solver);
     TS(ceres);
@@ -735,8 +803,12 @@ void VINS::solve_ceres(int buf_num)
             }
             
         }
+        TS(per_marginalization);
         marginalization_info->preMarginalize(); //??
+        TE(per_marginalization);
+        TS(marginalization);
         marginalization_info->marginalize();   //??
+        TE(marginalization);
         
         std::unordered_map<long, double *> addr_shift;
         for (int i = 1; i <= WINDOW_SIZE; i++)
@@ -816,6 +888,7 @@ bool VINS::solveInitial()
     printf("solve initial------------------------------------------\n");
     printf("PS %lf %lf %lf\n", Ps[0].x(),Ps[0].y(), Ps[0].z());
     //check imu observibility
+    /*
     {
         map<double, ImageFrame>::iterator frame_it;
         Vector3d sum_g;
@@ -854,6 +927,7 @@ bool VINS::solveInitial()
             return false;
         }
     }
+     */
     // global sfm
     Quaterniond *Q = new Quaterniond[frame_count + 1];
     Vector3d *T = new Vector3d[frame_count + 1];
@@ -883,6 +957,9 @@ bool VINS::solveInitial()
             printf("init solve 5pts between first frame and last frame failed\n");
             return false;
         }
+        //update init progress
+        initProgress = 30;
+        
         GlobalSFM sfm;
         if(!sfm.construct(frame_count + 1, Q, T, l,
                           relative_R, relative_T,
@@ -894,6 +971,8 @@ bool VINS::solveInitial()
             fail_times++;
             return false;
         }
+        //update init progress
+        initProgress = 50;
     }
     //solve pnp for all frame
     map<double, ImageFrame>::iterator frame_it;
@@ -973,11 +1052,16 @@ bool VINS::solveInitial()
     delete[] Q;
     delete[] T;
     
+    //update init progress
+    initProgress = 75;
+    
     printf("init PS after pnp %lf %lf %lf\n", Ps[0].x(),Ps[0].y(), Ps[0].z());
     
     if (visualInitialAlign())
     {
         return true;
+        //update init progress
+        initProgress = 85;
     }
     else
     {

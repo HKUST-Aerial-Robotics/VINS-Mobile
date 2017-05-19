@@ -42,7 +42,7 @@ double FeatureManager::compensatedParallax1(FeaturePerId &f_per_id)
     double dep_j = p_j(2);
     double u_j = p_j(0) / dep_j;
     double v_j = p_j(1) / dep_j;
-        
+    
     double du = u_i - u_j, dv = v_i - v_j;
     double dep_j_comp = p_j_comp(2);
     double u_j_comp = p_j_comp(0) / dep_j_comp;
@@ -72,13 +72,13 @@ double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int f
     
     double ans = 0;
     Vector3d p_j = frame_j.point;
-        
+    
     double u_j = p_j(0);
     double v_j = p_j(1);
     
     Vector3d p_i = frame_i.point;
-    Vector3d p_i_comp;
-    p_i_comp = ric.transpose() * Rs[r_j].transpose() * Rs[r_i] * ric * p_i;
+    Vector3d p_i_comp = p_i;
+    //p_i_comp = ric.transpose() * Rs[r_j].transpose() * Rs[r_i] * ric * p_i;
     
     double dep_i = p_i(2);
     double u_i = p_i(0) / dep_i;
@@ -95,17 +95,16 @@ double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int f
 }
 
 /*
-   Check if the current frame has enough parallax compare with previous frame
-   if have, return true;
-   if no, return false;
-   At the sametime, add the new feature observation to the feature class
+ Check if the current frame has enough parallax compare with previous frame
+ if have, return true;
+ if no, return false;
+ At the sametime, add the new feature observation to the feature class
  */
-bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, Vector3d> &image_msg)
+bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, Vector3d> &image_msg, int &parallax_num)
 {
     double parallax_sum = 0;
-    int parallax_num = 0;
-    int track_num = 0;
-    printf("size of img = %lu\n",image_msg.size());
+    parallax_num = 0;
+    last_track_num = 0;
     for (auto &id_pts : image_msg)
     {
         FeaturePerFrame f_per_fra(id_pts.second);
@@ -124,12 +123,12 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, Vec
         //find match with previous feature
         else if (it->feature_id == feature_id)
         {
-            track_num++;
             it->feature_per_frame.push_back(f_per_fra);
+            last_track_num ++;
         }
     }
     
-    if (frame_count < 2)
+    if (frame_count < 2 || last_track_num < 20)
         return true;
     
     for (auto &it_per_id : feature)
@@ -142,7 +141,8 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, Vec
         }
     }
     
-    if (parallax_num == 0 || track_num < 20)
+    printf("parallax sum = %lf parallax_num = %d\n",parallax_sum, parallax_num);
+    if (parallax_num == 0)
     {
         return true;
     }
@@ -164,9 +164,9 @@ vector<pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_coun
             Vector3d a = Vector3d::Zero(), b = Vector3d::Zero();
             int idx_l = frame_count_l - it.start_frame;
             int idx_r = frame_count_r - it.start_frame;
-
+            
             a = it.feature_per_frame[idx_l].point;
-
+            
             b = it.feature_per_frame[idx_r].point;
             
             corres.push_back(make_pair(a, b));
@@ -224,7 +224,7 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic, Matrix3d ric, bool
         for (auto &it_per_frame : it_per_id.feature_per_frame)
         {
             imu_j++;
-                
+            
             Eigen::Vector3d t1 = Ps[imu_j] + Rs[imu_j] * tic;
             Eigen::Matrix3d R1 = Rs[imu_j] * ric;
             Eigen::Vector3d t = R0.transpose() * (t1 - t0);
@@ -235,7 +235,7 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic, Matrix3d ric, bool
             Eigen::Vector3d f = it_per_frame.point.normalized();
             svd_A.row(svd_idx++) = f[0] * P.row(2) - f[2] * P.row(0);
             svd_A.row(svd_idx++) = f[1] * P.row(2) - f[2] * P.row(1);
-                
+            
             if (imu_i == imu_j)
                 continue;
             
@@ -397,7 +397,7 @@ void FeatureManager::removeFront(int frame_count)
                 feature.erase(it);
                 //printf("remove front\n");
             }
-                
+            
         }
         //if(it->is_margin == true)
         //    feature.erase(it);

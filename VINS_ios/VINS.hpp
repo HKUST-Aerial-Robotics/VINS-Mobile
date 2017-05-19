@@ -134,14 +134,10 @@ class VINS
     Matrix3d back_R0;
     Vector3d back_P0;
     //for falure detection
-    double spatial_dis;
     bool failure_hand;
-    bool is_failure;
-    Vector3d ypr_imu;
-    Vector3d Ps_his[WINDOW_SIZE];
-    Matrix3d Rs_his[WINDOW_SIZE];
-    double Headers_his[WINDOW_SIZE];
-    bool need_recover;
+    bool failure_occur;
+    Matrix3d last_R, last_R_old;
+    Vector3d last_P, last_P_old;
     
     //for visulization
     DrawResult drawresult;
@@ -164,6 +160,7 @@ class VINS
     InitStatus init_status;
     int parallax_num_view;
     int fail_times;
+    int initProgress;
     double final_cost;
     double visual_cost;
     int visual_factor_num;
@@ -174,6 +171,7 @@ class VINS
     void new2old();
     void clearState();
     void setIMUModel();
+    void setExtrinsic();
     void slideWindow();
     void slideWindowNew();
     void slideWindowOld();
@@ -181,11 +179,11 @@ class VINS
     void processIMU(double t, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
     void changeState();
     bool solveInitial();
-    void setExtrinsic();
     bool relativePose(int camera_id, Matrix3d &relative_R, Vector3d &relative_T, int &l);
     bool visualInitialAlign();
-    void failureDetection();
+    bool failureDetection();
     void failureRecover();
+    void reInit();
     void update_loop_correction();
 };
 #endif /* VINS_hpp */

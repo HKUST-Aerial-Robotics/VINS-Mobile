@@ -43,7 +43,7 @@ enum DeviceType
 #define GYR_W ((double)4.0e-5)
 #define BIAS_ACC_THRESHOLD ((double)0.5)
 #define BIAS_GYR_THRESHOLD ((double)0.1)
-#define G_THRESHOLD ((double)1.0)
+#define G_THRESHOLD ((double)3.0)
 #define G_NORM ((double)9.805)
 #define INIT_KF_THRESHOLD ((double)18)
 #define SFM_R_THRESHOLD ((double)180)
