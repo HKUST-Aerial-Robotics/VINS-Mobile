@@ -6,7 +6,7 @@ VINS-Mobile is a real-time monocular visual-inertial state estimator developed b
 
 **Authors:** [Peiliang LI](https://github.com/PeiliangLi), [Tong QIN](https://github.com/qintony), [Zhenfei YANG](https://github.com/dvorak0), Kejie QIU, and [Shaojie SHEN](http://www.ece.ust.hk/ece.php/profile/facultydetail/eeshaojie) from the [HKUST Aerial Robotics Group](http://uav.ust.hk/)
 
-**Videos:** https://www.youtube.com/watch?v=qazzGT84Scc&feature=youtu.be
+**Videos:** https://youtu.be/0mTXnIfFisI
 
 **Related Papers:**
 * [**Monocular Visual-Inertial State Estimation for Mobile Augmented Reality**](http://www.ece.ust.hk/~eeshaojie/ismar2017peiliang.pdf), *P.Li et al (submitted to ISMAR 2017)*
