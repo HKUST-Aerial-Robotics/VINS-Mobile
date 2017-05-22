@@ -186,8 +186,8 @@ Vector4f creatPlane(Vector3f p1,Vector3f p2, Vector3f p3)
 Vector4f DrawResult::findPlane(vector<Vector3f> &point_cloud)
 {
     int K = 2000, k = 1;    //max iterate num and current iterate num
-    float sigma = 0.01;     //设置拟合直线与数据距离的偏差
-    int pretotal = 0;     //符合拟合模型的数据的个数
+    float sigma = 0.01;
+    int pretotal = 0;
     Vector4f bestplane;
     bestplane << 0,0,0,0;
  

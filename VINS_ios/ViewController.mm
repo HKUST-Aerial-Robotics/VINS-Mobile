@@ -11,7 +11,7 @@
 #import "CameraUtils.h"
 
 #if VINS_FRAMEWORK
-#import "VINSUnityAPI.h"
+//#import "VINSUnityAPI.h"
 /*for Unity_iPhone, choose camera mode or glass mode
  if true: camera mode, visualization use alighed image and vins result, neither is the latest result
  if false: glass mode, visulization use latest vins result and glasses real image
@@ -488,7 +488,7 @@ bool vins_updated = false;
         {
 #if VINS_FRAMEWORK
             if (CAMERA_MODE || vins.solver_flag != VINS::NON_LINEAR) {
-                VINSUnityAPI::UpdateBackgroundTexture(image);
+                //VINSUnityAPI::UpdateBackgroundTexture(image);
             }
 #else
             if(CAMERA_MODE)
@@ -556,7 +556,7 @@ bool vins_updated = false;
     } else {
         // Not capturing, means not started yet
 #if VINS_FRAMEWORK
-        VINSUnityAPI::UpdateBackgroundTexture(image);
+        //VINSUnityAPI::UpdateBackgroundTexture(image);
 #else
         cv::cvtColor(image, image, CV_BGRA2RGB);
         cv::flip(image,image,-1);
@@ -1310,7 +1310,7 @@ bool start_active = true;
     self.fovLabel.text = [[NSNumber numberWithFloat:self.fovSlider.value] stringValue];
     
 #if VINS_FRAMEWORK
-    VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
+    //VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
 #endif
 }
 
@@ -1716,7 +1716,7 @@ bool start_active = true;
     [super viewDidAppear:animated];
     
 #if VINS_FRAMEWORK
-    VINSUnityAPI::TestNativeTexture();
+    //VINSUnityAPI::TestNativeTexture();
 #endif
 }
 
