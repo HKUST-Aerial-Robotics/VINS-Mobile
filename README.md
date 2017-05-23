@@ -1,7 +1,7 @@
 # VINS-Mobile
 ## Monocular Visual-Inertial State Estimator on Mobile Phones
 
-**22 May 2017**  VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator on Linux version is availble now. [link](https://github.com/HKUST-Aerial-Robotics/VINS-Mono)
+**22 May 2017**  **VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator** is released. It is the **Linux** version and is fully integrated with **ROS**. Availble at: [link](https://github.com/HKUST-Aerial-Robotics/VINS-Mono)
 
 VINS-Mobile is a real-time monocular visual-inertial state estimator developed by members of the [HKUST Aerial Robotics Group](http://uav.ust.hk/). It runs on compatible iOS devices, and provides localization services for augmented reality (AR) applications. It is also tested for state estimation and feedback control for autonomous drones. VINS-Mobile uses sliding window optimization-based formulation for providing high-accuracy visual-inertial odometry with automatic initialization and failure recovery. The accumulated odometry errors are corrected in real-time using global pose graph SLAM. An AR demonstration is provided to showcase its capability.
 
