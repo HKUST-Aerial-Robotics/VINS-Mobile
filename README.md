@@ -1,13 +1,17 @@
 # VINS-Mobile
 ## Monocular Visual-Inertial State Estimator on Mobile Phones
 
+**31 May 2017**:  **HoloKit**, an iOS app based on **VINS-Mobile**, is now available on the App Store. Availble at: [link](https://itunes.apple.com/us/app/holokit/id1237080840)
+
+
 **22 May 2017**:  **VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator** is released. It is the **Linux** version and is fully integrated with **ROS**. Availble at: [link](https://github.com/HKUST-Aerial-Robotics/VINS-Mono)
+
 
 VINS-Mobile is a real-time monocular visual-inertial state estimator developed by members of the [HKUST Aerial Robotics Group](http://uav.ust.hk/). It runs on compatible iOS devices, and provides localization services for augmented reality (AR) applications. It is also tested for state estimation and feedback control for autonomous drones. VINS-Mobile uses sliding window optimization-based formulation for providing high-accuracy visual-inertial odometry with automatic initialization and failure recovery. The accumulated odometry errors are corrected in real-time using global pose graph SLAM. An AR demonstration is provided to showcase its capability.
 
 **Authors:** [Peiliang LI](https://github.com/PeiliangLi), [Tong QIN](https://github.com/qintony), [Zhenfei YANG](https://github.com/dvorak0), Kejie QIU, and [Shaojie SHEN](http://www.ece.ust.hk/ece.php/profile/facultydetail/eeshaojie) from the [HKUST Aerial Robotics Group](http://uav.ust.hk/)
 
-**Videos:** https://youtu.be/0mTXnIfFisI
+**Videos:** https://youtu.be/0mTXnIfFisI https://youtu.be/CI01qbPWlYY ([Video1](http://www.bilibili.com/video/av10813373/) [Video2](http://www.bilibili.com/video/av10813030/) for mainland China friends)
 
 **Related Papers:**
 * [**Monocular Visual-Inertial State Estimation for Mobile Augmented Reality**](http://www.ece.ust.hk/~eeshaojie/ismar2017peiliang.pdf), *P.Li et al (submitted to ISMAR 2017)*
