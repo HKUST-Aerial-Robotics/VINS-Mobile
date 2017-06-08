@@ -1,9 +1,6 @@
 # VINS-Mobile
 ## Monocular Visual-Inertial State Estimator on Mobile Phones
 
-**31 May 2017**:  **HoloKit**, an iOS app based on **VINS-Mobile**, is now available on the App Store. Available at: [link](https://itunes.apple.com/us/app/holokit/id1237080840)
-
-
 **22 May 2017**:  **VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator** is released. It is the **Linux** version and is fully integrated with **ROS**. Available at: [link](https://github.com/HKUST-Aerial-Robotics/VINS-Mono)
 
 
