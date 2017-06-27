@@ -73,7 +73,7 @@ float check_scale(const cv::Point2f &pt)
             max4 = 1 - img_y;
         
         int max_result = max(max(max1,max2),max(max3,max4));
-
+        
         if(max_result == max1 || max_result == max3)
             scale_factor = (float)((WIDTH-10)/2.0)/((WIDTH-10)/2.0+max_result);
         else
@@ -155,18 +155,18 @@ vector<Vector3f> DrawResult::calculate_camera_pose(Vector3f camera_center, Matri
     
     Eigen::Matrix3f RIC;
     RIC = Utility::ypr2R(Vector3d(RIC_y,RIC_p,RIC_r)).cast<float>();
-
+    
     for (auto it : origin)
     {
         Vector3f tmp;
         tmp = Rc*it + camera_center;
         /*
-        Eigen::Vector3f Pc;
-        cv::Point2f pts;
-        Pc = R_c_w * RIC.transpose() * tmp + T_c_w;
-        pts.x = Fx * Pc.x() / Pc.z()+ PX;
-        pts.y = Fy * Pc.y() / Pc.z()+ PY;
-        */
+         Eigen::Vector3f Pc;
+         cv::Point2f pts;
+         Pc = R_c_w * RIC.transpose() * tmp + T_c_w;
+         pts.x = Fx * Pc.x() / Pc.z()+ PX;
+         pts.y = Fy * Pc.y() / Pc.z()+ PY;
+         */
         result.push_back(tmp);
     }
     return result;
@@ -190,7 +190,7 @@ Vector4f DrawResult::findPlane(vector<Vector3f> &point_cloud)
     int pretotal = 0;
     Vector4f bestplane;
     bestplane << 0,0,0,0;
- 
+    
     while(pretotal<point_cloud.size()/2 && k < K)
     {
         int index1 = rand() % point_cloud.size();
@@ -204,7 +204,7 @@ Vector4f DrawResult::findPlane(vector<Vector3f> &point_cloud)
         point1 = point_cloud[index1];
         point2 = point_cloud[index2];
         point3 = point_cloud[index3];
-            
+        
         Vector4f plane = creatPlane(point1, point2, point3);
         int inPlaneNum = 0;
         Vector3f point_sum;
@@ -291,8 +291,8 @@ Vector3f DrawResult::findZfromXY(Vector3f point, Vector4f plane)
     float tmp = (n_plane.norm());
     float t = (n_plane.dot(point) + plane(3))/(tmp*tmp);
     pointInPlane << point(0) - plane(0)*t,
-                    point(1) - plane(1)*t,
-                    point(2) - plane(2)*t;
+    point(1) - plane(1)*t,
+    point(2) - plane(2)*t;
     return pointInPlane;
 }
 
@@ -303,18 +303,67 @@ void DrawResult::computeAR(vector<Vector3f> &point_cloud, Vector3f &model)
 {
     if(point_cloud.size() < 10)
         return;
-    startInit = true;
-    if(!planeInit && startInit)
+    /*
+     startInit = true;
+     if(!planeInit && startInit)
+     {
+     initPlane = findPlane(point_cloud);
+     
+     model = findZfromXY(initPoint,initPlane);
+     planeInit = true;
+     }
+     */
+    vector<Vector3f> inlier_points;
+    int height_range[30];
+    double height_sum[30];
+    vector<vector<Vector3f>> points_clusters;
+    points_clusters.resize(30);
+    for (int i = 0; i < 30; i++)
     {
-        initPlane = findPlane(point_cloud);
-        
-        model = findZfromXY(initPoint,initPlane);
-        planeInit = true;
+        height_range[i] = 0;
+        height_sum[i] = 0;
     }
+    for (unsigned int i = 0; i < point_cloud.size(); i++)
+    {
+        double z = point_cloud[i].z();
+        int index = (z + 2.0) / 0.1;
+        if (0 <= index && index < 30)
+        {
+            height_range[index]++;
+            height_sum[index] += z;
+            points_clusters[index].push_back(point_cloud[i]);
+        }
+    }
+    int max_num = 0;
+    int max_index = -1;
+    for (int i = 1; i < 29; i++)
+    {
+        if (max_num < height_range[i])
+        {
+            max_num = height_range[i];
+            max_index = i;
+        }
+    }
+    if (max_index == -1)
+        return;
+    else
+    {
+        inlier_points = points_clusters[max_index];
+        Vector3f tmp_p;
+        tmp_p.setZero();
+        for(int i = 0; i< inlier_points.size(); i++)
+        {
+            tmp_p += inlier_points[i];
+        }
+        model = tmp_p/inlier_points.size();
+        planeInit = true;
+        return;
+    }
+    
 }
 
 /*
-  draw a real box in (0,0,1.5) of world frame
+ draw a real box in (0,0,1.5) of world frame
  */
 
 void DrawResult::drawGround(cv::Mat &result, vector<Vector3f> &point_cloud, Vector3f P_latest, Matrix3f R_latest)
@@ -328,11 +377,11 @@ void DrawResult::drawGround(cv::Mat &result, vector<Vector3f> &point_cloud, Vect
     for (unsigned int i = 0; i < point_cloud.size(); i++)
     {
         Vector3f Pc;
-        Pc = (R_latest * RIC).transpose()* (point_cloud[i] - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-    
+        Pc = (R_latest * RIC).transpose()* (point_cloud[i] - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+        
         cv::Point2f pts;
-        pts.x = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-        pts.y = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+        pts.x = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+        pts.y = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
         
         points.push_back(Vec2f_(pts.x, pts.y));
         
@@ -359,7 +408,6 @@ void DrawResult::drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, 
     Eigen::Matrix3f RIC;
     RIC = Utility::ypr2R(Vector3d(RIC_y,RIC_p,RIC_r)).cast<float>();
     
-    
     vector<Vector3f> boxConers;
     boxConers.push_back(corner_0);
     boxConers.push_back(corner_x);
@@ -377,7 +425,7 @@ void DrawResult::drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, 
     for(auto it : boxConers)
     {
         if (inAR)
-            Pc = (R_latest * RIC).transpose()* (it - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
+            Pc = (R_latest * RIC).transpose()* (it - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
         else
             Pc = R_latest.transpose() * (it - origin_w - P_latest);
         if(Pc.z()<0)
@@ -386,8 +434,8 @@ void DrawResult::drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, 
         cv::Point2f pts;
         if (inAR)
         {
-            pts.x = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-            pts.y = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            pts.x = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+            pts.y = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
         }
         else{
             pts.x = Fx * Pc.x() / Pc.z()+ Y0;
@@ -412,7 +460,7 @@ void DrawResult::drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, 
     p[7] = boxImage[7];
     
     int npts[1] = {4};
-    float min_depth = 100000;
+    float min_depth = 10;
     int min_index = 5;
     for(int i= 0; i< depth_of_coner.size(); i++)
     {
@@ -456,7 +504,7 @@ void DrawResult::drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, 
         plain[0][2] = p[point_group[min_index][6]];
         plain[0][3] = p[point_group[min_index][7]];
         cv::fillPoly(result, ppt, npts, 1, cv::Scalar(0, 200, 0));
-
+        
     }
     plain[0][0] = p[point_group[min_index][8]];
     plain[0][1] = p[point_group[min_index][9]];
@@ -465,7 +513,7 @@ void DrawResult::drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, 
     cv::fillPoly(result, ppt, npts, 1, cv::Scalar(0, 0, 200));
 }
 
-void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &point_cloud, Vector3f P_latest, Matrix3f R_latest, bool vins_update)
+void DrawResult::drawAR(cv::Mat &result, vector<Vector3f> &point_cloud, Vector3f P_latest, Matrix3f R_latest)
 {
     cv::Mat aa(HEIGHT,WIDTH,CV_8UC3,Scalar(0,0,0));
     result = aa;
@@ -488,8 +536,8 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
     Vector3f groundPlanePoint;
     vector<Vector3f> point_inlier;
     groundPlanePoint = findGround(point_cloud, point_inlier);
-    printf("Ground inlier size %d\n", int(point_inlier.size()) );
-
+    //printf("Ground inlier size %d\n", int(point_inlier.size()) );
+    
     
     ///draw ground area
     if (point_inlier.size()>28)
@@ -501,6 +549,10 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         if ( Grounds[i].boxflag)
             drawBox(result, Grounds[i].ori, Grounds[i].cox, Grounds[i].coy, Grounds[i].coz, Grounds[i].size, P_latest, R_latest, true);
     }
+    
+    
+    
+    
     ////////////////////////////// translation response
     /////////////////////////// follow mode translation response
     if ( locationX != locationX_p or locationY != locationY_p )
@@ -518,9 +570,9 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         dis_min= 100000;
         for (unsigned int i =0; i< Grounds.size(); i++)
         {
-            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
             distance = (box_center_xy - center_input).norm();
             if (distance < dis_min)
             {
@@ -582,15 +634,15 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         Vector2f box_center_xy, center_input;
         center_input<< xx, yy;
         
-
+        
         float distance, dis_min;
         unsigned int dis_min_idx;
         dis_min= 100000;
         for (unsigned int i =0; i< Grounds.size(); i++)
         {
-            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
             distance = (box_center_xy - center_input).norm();
             if (distance < dis_min)
             {
@@ -626,15 +678,15 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         Vector3f box_center, Pc;
         Vector2f box_center_xy, center_input;
         center_input<< xx, yy;
-
+        
         float distance, dis_min;
         unsigned int dis_min_idx;
         dis_min= 100000;
         for (unsigned int i =0; i< Grounds.size(); i++)
         {
-            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
             distance = (box_center_xy - center_input).norm();
             if (distance < dis_min)
             {
@@ -688,6 +740,7 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         
     }
     ///////////////////////////// rotation response
+    
     //////////////////////////// long press unlock response
     if (longPressFlag)
     {
@@ -704,9 +757,9 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         dis_min= 100000;
         for (unsigned int i =0; i< Grounds.size(); i++)
         {
-            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+            box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+            box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
             distance = (box_center_xy - center_input).norm();
             if (distance < dis_min)
             {
@@ -721,9 +774,9 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
             ////show something
             cv::Point2f pts1;
             
-            Pc = (R_latest * RIC).transpose()* (Grounds[dis_min_idx].coz - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-            pts1.x = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-            pts1.y = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            Pc = (R_latest * RIC).transpose()* (Grounds[dis_min_idx].coz - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+            pts1.x = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+            pts1.y = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
             
             cv::circle(result, pts1, 0, cvScalar(0,255,0), 12);
         }
@@ -739,18 +792,18 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         Vector3f Pc;
         Vector2f box_center_xy, center_input;
         center_input<< xx, yy;
-        Pc = (R_latest * RIC).transpose()* (groundPlanePoint - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-        box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-        box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+        Pc = (R_latest * RIC).transpose()* (groundPlanePoint - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+        box_center_xy.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+        box_center_xy.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
         
         float distance;
         bool security_flag=true;
         Vector2f box_center_his;
         for (unsigned int i =0; i< Grounds.size(); i++)
         {
-            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(0,0.043,0));
-            box_center_his.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ 240;
-            box_center_his.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ 320;
+            Pc = (R_latest * RIC).transpose()* (Grounds[i].center - 1.0*P_latest  - R_latest * Vector3f(TIC_X,TIC_Y,TIC_Z));
+            box_center_his.x() = FOCUS_LENGTH_X * Pc.x() / Pc.z()+ PX;
+            box_center_his.y() = FOCUS_LENGTH_Y * Pc.y() / Pc.z()+ PY;
             distance = (box_center_his - box_center_xy).norm();
             if (distance < 150)
             {
@@ -793,6 +846,8 @@ void DrawResult::drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &
         }
         tapFlag = false;
     }
+    
+    
 }
 
 /////draw existing boxes in virtual camera
@@ -834,14 +889,14 @@ void DrawResult::drawBoxVirturCam(cv::Mat &result)
 }
 
 /*
-    Reproject Pw to image plane of a virtual camera.
-    Tx,Ty,Tz is virtual camera translation in real camera frame, which is constant.
-    pitch,roll,yaw is virtual camera rotation in real camera frame, which is changed by user touch screen
-    
-    Pw is all of the point in world frame, which include real camera (iphone: start from 0) pose and point clouds.
-    
-    Pc = RIC^t * (Pw - TIC); rotate from world frame to real camera frame
-    Pv = RVC^t * Pc + TVC;
+ Reproject Pw to image plane of a virtual camera.
+ Tx,Ty,Tz is virtual camera translation in real camera frame, which is constant.
+ pitch,roll,yaw is virtual camera rotation in real camera frame, which is changed by user touch screen
+ 
+ Pw is all of the point in world frame, which include real camera (iphone: start from 0) pose and point clouds.
+ 
+ Pc = RIC^t * (Pw - TIC); rotate from world frame to real camera frame
+ Pv = RVC^t * Pc + TVC;
  
  
  */
@@ -862,8 +917,8 @@ cv::Point2f DrawResult::World2VirturCam(Eigen::Vector3f xyz, float &depth)
     camInWorld_T.y() = -radius * cos(theta* C_PI/ 180.0) * cos(phy* C_PI/ 180.0);
     Matrix3f camInWorld_R;
     /*make sure camera optical axis is towards to world origin
-    camInWorld_T = -camInWorld_R * (0, 0, 1)^T
-    */
+     camInWorld_T = -camInWorld_R * (0, 0, 1)^T
+     */
     //camInWorld_R = Utility::ypr2R(Vector3f(0, 0, -theta)) * Utility::ypr2R(Vector3f(0, phy, 0)) * Utility::ypr2R(Vector3f(0, 0, -90));
     Vector3f Zwc = -camInWorld_T/camInWorld_T.lpNorm<2>();
     Vector3f Xwc;
@@ -873,8 +928,8 @@ cv::Point2f DrawResult::World2VirturCam(Eigen::Vector3f xyz, float &depth)
     Ywc = Ywc/Ywc.lpNorm<2>();
     
     camInWorld_R << Xwc.x(),Ywc.x(),Zwc.x(),
-                    Xwc.y(),Ywc.y(),Zwc.y(),
-                    Xwc.z(),Ywc.z(),Zwc.z();
+    Xwc.y(),Ywc.y(),Zwc.y(),
+    Xwc.z(),Ywc.z(),Zwc.z();
     
     Vector3f Pc = camInWorld_R.transpose() * (xyz - origin_w - camInWorld_T);
     
@@ -897,8 +952,8 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
     Eigen::Matrix3f R_v_c = Utility::ypr2R(Eigen::Vector3f{yaw, pitch, roll});
     Eigen::Vector3f T_v_c;
     T_v_c << Tx,
-             Ty,
-             Tz;
+    Ty,
+    Tz;
     
     cv::Point2f pts_pre;
     cv::Point2f pts;
@@ -912,9 +967,9 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
             pts_pre = pts;
             continue;
         }
-
+        
         while(trajectory_color.size() <= segment_indexs[i])
-                trajectory_color.push_back(newColor());
+            trajectory_color.push_back(newColor());
         cv::line(result, pts_pre, pts, trajectory_color[segment_indexs[i]], 2, 8, 0);
         
         pts_pre = pts;
@@ -929,7 +984,7 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
         p2 << length, 0, 0;
         pt1 = World2VirturCam(p1, depth_marker);
         pt2 = World2VirturCam(p2, depth_marker);
-
+        
         arrowedLine(result, pt1, pt2, cvScalar(100,100,100),1, 8, 0, 0.02);
         cv::putText(result, "X", pt2, 0, 0.5, cvScalar(100,100,100));
         
@@ -937,7 +992,7 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
         p2 << 0, length, 0;
         pt1 = World2VirturCam(p1, depth_marker);
         pt2 = World2VirturCam(p2, depth_marker);
-
+        
         arrowedLine(result, pt1, pt2, cvScalar(100,100,100),1 , 8, 0, 0.02);
         cv::putText(result, "Y", pt2, 0, 0.5, cvScalar(100,100,100));
         
@@ -945,7 +1000,7 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
         p2 << 0, 0, length;
         pt1 = World2VirturCam(p1, depth_marker);
         pt2 = World2VirturCam(p2, depth_marker);
-
+        
         arrowedLine(result, pt1, pt2, cvScalar(100,100,100), 1, 8, 0, 0.02);
         cv::putText(result, "Z", pt2, 0, 0.5, cvScalar(100,100,100));
         
@@ -957,8 +1012,8 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
             vector<pair<Point2f, Point2f>> grid_plane;
             Vector3f origin_grid;
             origin_grid << - dis*(line_num/2),
-                           - dis*(line_num/2),
-                                    0;
+            - dis*(line_num/2),
+            0;
             for(int i=0; i < line_num; i++)
             {
                 pair<Vector3f, Vector3f> tmp_Pts;
@@ -999,13 +1054,13 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
         {
             camera_coner.push_back(World2VirturCam(it, depth_marker));
         }
-    
+        
         CvScalar camera_color = cvScalar(0,0,255);
         cv::line(result, camera_coner[0], camera_coner[1], camera_color, 1, 8, 0);  //RGB
         cv::line(result, camera_coner[1], camera_coner[2], camera_color, 1, 8, 0);
         cv::line(result, camera_coner[2], camera_coner[3], camera_color, 1, 8, 0);
         cv::line(result, camera_coner[3], camera_coner[0], camera_color, 1, 8, 0);
-    
+        
         cv::line(result, camera_coner[4], camera_coner[0], camera_color, 1, 8, 0);
         cv::line(result, camera_coner[4], camera_coner[1], camera_color, 1, 8, 0);
         cv::line(result, camera_coner[4], camera_coner[2], camera_color, 1, 8, 0);
@@ -1015,7 +1070,7 @@ void DrawResult::Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, co
     //draw existing boxes
     if (box_in_trajectorty)
         drawBoxVirturCam(result);
-
+    
     for (int i=0; i<point_cloud.size(); i++)
     {
         Eigen::Vector3f Pc;

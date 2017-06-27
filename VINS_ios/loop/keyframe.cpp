@@ -33,12 +33,12 @@ void reduceVector2(vector<T> &v, vector<uchar> status)
 }
 
 void KeyFrame::rejectWithF(vector<cv::Point2f> &measurements_old,
-                 vector<cv::Point2f> &measurements_old_norm)
+                           vector<cv::Point2f> &measurements_old_norm)
 {
     if (measurements_old.size() >= 8)
     {
         measurements_old_norm.clear();
-
+        
         for (unsigned int i = 0; i < measurements_old.size(); i++)
         {
             cv::Point2f norm_pt;
@@ -46,7 +46,7 @@ void KeyFrame::rejectWithF(vector<cv::Point2f> &measurements_old,
             norm_pt.y = (measurements_old[i].y - PY)/FOCUS_LENGTH_Y;
             measurements_old_norm.push_back(norm_pt);
         }
-
+        
         vector<uchar> status;
         cv::findFundamentalMat(measurements, measurements_old, cv::FM_RANSAC, 2.0, 0.99, status);
         reduceVector2(point_clouds, status);
@@ -77,24 +77,24 @@ void KeyFrame::setExtrinsic(Eigen::Vector3d T, Eigen::Matrix3d R)
 }
 
 void KeyFrame::initPtsByReprojection(Eigen::Vector3d Ti_predict,
-									 Eigen::Matrix3d Ri_predict,
-									 std::vector<cv::Point2f> &measurements_predict)
+                                     Eigen::Matrix3d Ri_predict,
+                                     std::vector<cv::Point2f> &measurements_predict)
 {
     measurements_predict.clear();
     Vector3d pts_predict;
-	for(int i = 0; i < (int)point_clouds.size(); i++)
-	{
-    	Eigen::Vector3d pts_w = point_clouds[i];
-    	Eigen::Vector3d pts_imu_j = Ri_predict.inverse() * (pts_w - Ti_predict);
-    	Eigen::Vector3d pts_camera_j = qic.inverse() * (pts_imu_j - tic);
-    	pts_predict <<  pts_camera_j.x()/pts_camera_j.z(),
-    				    pts_camera_j.y()/pts_camera_j.z(),
-    					1.0;
+    for(int i = 0; i < (int)point_clouds.size(); i++)
+    {
+        Eigen::Vector3d pts_w = point_clouds[i];
+        Eigen::Vector3d pts_imu_j = Ri_predict.inverse() * (pts_w - Ti_predict);
+        Eigen::Vector3d pts_camera_j = qic.inverse() * (pts_imu_j - tic);
+        pts_predict <<  pts_camera_j.x()/pts_camera_j.z(),
+        pts_camera_j.y()/pts_camera_j.z(),
+        1.0;
         Vector2d point_uv;
         point_uv.x() = FOCUS_LENGTH_X * pts_predict.x() + PX;
         point_uv.y() = FOCUS_LENGTH_Y * pts_predict.y() + PY;
         measurements_predict.push_back(cv::Point2f(point_uv.x(), point_uv.y()));
-	}
+    }
     if(measurements_predict.size() == 0)
     {
         measurements_predict = measurements;
@@ -102,11 +102,11 @@ void KeyFrame::initPtsByReprojection(Eigen::Vector3d Ti_predict,
 }
 
 void KeyFrame::initPoseForPnP(Eigen::Vector3d &T_c_w,
-							  Eigen::Matrix3d &R_c_w)
+                              Eigen::Matrix3d &R_c_w)
 {
-	Matrix3d R_w_c = R_w_i * qic;
+    Matrix3d R_w_c = R_w_i * qic;
     Vector3d T_w_c = T_w_i + R_w_i * tic;
-
+    
     R_c_w = R_w_c.inverse();
     T_c_w = -(R_c_w * T_w_c);
 }
@@ -120,10 +120,10 @@ void KeyFrame::cam2Imu(Eigen::Vector3d T_c_w,
     t_w_i = -R_c_w.inverse() * T_c_w - r_w_i * tic;
 }
 
-double round(double r)  
-{  
-    return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);  
-} 
+double round(double r)
+{
+    return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
+}
 
 void KeyFrame::buildKeyFrameFeatures(VINS &vins)
 {
@@ -190,9 +190,9 @@ void KeyFrame::searchByDes(std::vector<cv::Point2f> &measurements_old,
 }
 
 /**
-*** return refined pose of the current frame
-**/
-bool KeyFrame::solveOldPoseByPnP(std::vector<cv::Point2f> &measurements_old_norm, 
+ *** return refined pose of the current frame
+ **/
+bool KeyFrame::solveOldPoseByPnP(std::vector<cv::Point2f> &measurements_old_norm,
                                  const Eigen::Vector3d T_w_i_old, const Eigen::Matrix3d R_w_i_old,
                                  Eigen::Vector3d &T_w_i_refine, Eigen::Matrix3d &R_w_i_refine)
 {
@@ -203,14 +203,14 @@ bool KeyFrame::solveOldPoseByPnP(std::vector<cv::Point2f> &measurements_old_norm
     Vector3d P_inital;
     Matrix3d R_w_c = R_w_i_old * qic;
     Vector3d T_w_c = T_w_i_old + R_w_i * tic;
-
+    
     R_inital = R_w_c.inverse();
     P_inital = -(R_inital * T_w_c);
     
     cv::eigen2cv(R_inital, tmp_r);
     cv::Rodrigues(tmp_r, rvec);
     cv::eigen2cv(P_inital, t);
-
+    
     vector<cv::Point3f> pts_3_vector;
     bool pnp_succ = false;
     for(auto &it: point_clouds)
@@ -230,7 +230,7 @@ bool KeyFrame::solveOldPoseByPnP(std::vector<cv::Point2f> &measurements_old_norm
             pnp_succ = cv::solvePnP(pts_3_vector, measurements_old_norm, K, D, rvec, t, 1);
         }
     }
-
+    
     if(!pnp_succ)
     {
         cout << "loop pnp failed !" << endl;
@@ -249,21 +249,21 @@ bool KeyFrame::solveOldPoseByPnP(std::vector<cv::Point2f> &measurements_old_norm
     Vector3d old_T_drift;
     Matrix3d old_R_drift;
     cam2Imu(T_loop, R_loop, old_T_drift, old_R_drift);
-
+    
     T_w_i_refine = T_w_i_old + R_w_i_old * old_R_drift.transpose() * (T_w_i - old_T_drift);
     R_w_i_refine = R_w_i_old * old_R_drift.transpose() * R_w_i;
-
+    
     //printf("loop current T: %2lf %2lf %2lf\n", T_w_i(0),T_w_i(1),T_w_i(2));
-                
+    
     //printf("loop refined T: %2lf %2lf %2lf\n", T_w_i_refine(0),T_w_i_refine(1),T_w_i_refine(2));
     return true;
 }
 
 /**
-*** interface to VINS
-*** input: looped old keyframe which include image and pose, and feature correnspondance given by BoW
-*** output: ordered old feature correspondance with current KeyFrame and the translation drift
-**/
+ *** interface to VINS
+ *** input: looped old keyframe which include image and pose, and feature correnspondance given by BoW
+ *** output: ordered old feature correspondance with current KeyFrame and the translation drift
+ **/
 bool KeyFrame::findConnectionWithOldFrame(const KeyFrame* old_kf,
                                           const std::vector<cv::Point2f> &cur_pts, const std::vector<cv::Point2f> &old_pts,
                                           std::vector<cv::Point2f> &measurements_old, std::vector<cv::Point2f> &measurements_old_norm)
@@ -362,6 +362,7 @@ void KeyFrame::detectLoop(int index)
 void KeyFrame::removeLoop()
 {
     has_loop = false;
+    //update_loop_info = 0;
 }
 
 int KeyFrame::HammingDis(const BRIEF::bitset &a, const BRIEF::bitset &b)

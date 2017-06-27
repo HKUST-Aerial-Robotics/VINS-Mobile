@@ -3,7 +3,7 @@
 //  VINS_ios
 //
 //  Created by HKUST Aerial Robotics on 2017/5/2.
-//  Copyright © 2017年 HKUST Aerial Robotics. All rights reserved.
+//  Copyright © 2017 HKUST Aerial Robotics. All rights reserved.
 //
 
 #include "keyfame_database.h"
@@ -33,7 +33,7 @@ void KeyFrameDatabase::add(KeyFrame* pKF)
     
     total_length += (P - last_P).norm();
     last_P = P;
-
+    
     // add key frame to path for visualization
     refine_path.push_back(P.cast<float>());
     segment_indexs.push_back(pKF->segment_index);
@@ -57,7 +57,7 @@ void KeyFrameDatabase::resample(vector<int> &erase_index)
         Matrix3d tmp_r;
         (*it)->getPose(tmp_t, tmp_r);
         double dis = (tmp_t - last_P).norm();
-        if(dis > min_dis || (*it)->has_loop || (*it)->is_looped || !(*it)->check_loop)
+        if(dis > min_dis || (*it)->has_loop || (*it)->is_looped /*|| !(*it)->check_loop*/)
         {
             last_P = tmp_t;
             it++;
@@ -139,6 +139,7 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
     printf("loop global pose graph\n");
     KeyFrame* cur_kf = getKeyframe(cur_index);
     int loop_index = cur_kf->loop_index;
+    printf("loop bug current %d %d\n", cur_kf->global_index, cur_kf->loop_index);
     if (earliest_loop_index > loop_index || earliest_loop_index == -1)
         earliest_loop_index = loop_index;
     assert(cur_kf->has_loop == 1);
@@ -214,7 +215,11 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
         if((*it)->has_loop)
         {
             int connected_index = getKeyframe((*it)->loop_index)->resample_index;
-            assert((*it)->loop_index >= earliest_loop_index);
+            if((*it)->loop_index < earliest_loop_index)
+            {
+                printf("loop bug %d %d\n", (*it)->global_index, (*it)->loop_index);
+                assert(false);
+            }
             Vector3d euler_conncected = Utility::R2ypr(q_array[connected_index].toRotationMatrix());
             Vector3d relative_t((*it)->loop_info(0), (*it)->loop_info(1), (*it)->loop_info(2));
             double relative_yaw = (*it)->loop_info(7);
@@ -284,12 +289,12 @@ void KeyFrameDatabase::updateVisualization()
     last_P = Vector3d(0, 0, 0);
     //update visualization
     list<KeyFrame*>::iterator it;
-
+    
     refine_path.clear();
     segment_indexs.clear();
+    all_keyframes.clear();
     for (it = keyFrameList.begin(); it != keyFrameList.end(); it++)
     {
-        
         Vector3d P;
         Matrix3d R;
         (*it)->getPose(P, R);
@@ -302,6 +307,12 @@ void KeyFrameDatabase::updateVisualization()
         // add key frame to path for visualization
         refine_path.push_back(P.cast<float>());
         segment_indexs.push_back((*it)->segment_index);
+        
+        KEYFRAME_DATA keyframe_data;
+        keyframe_data.header = (*it)->header;
+        keyframe_data.translation = P;
+        keyframe_data.rotation = Q;
+        all_keyframes.push_back(keyframe_data);
     }
     printf("loop update visualization\n");
 }

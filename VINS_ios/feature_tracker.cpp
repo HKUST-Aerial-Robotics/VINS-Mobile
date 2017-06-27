@@ -10,7 +10,7 @@
 
 int FeatureTracker::n_id = 0;
 FeatureTracker::FeatureTracker()
-:mask{ROW, COL, CV_8UC1},update_finished{false},img_cnt{0}
+:mask{ROW, COL, CV_8UC1},update_finished{false},img_cnt{0},current_time{-1.0}
 {
     printf("init ok\n");
 }
@@ -23,7 +23,7 @@ bool inBorder(const cv::Point2f &pt)
     return BORDER_SIZE <= img_x && img_x < COL - BORDER_SIZE && BORDER_SIZE <= img_y && img_y < ROW - BORDER_SIZE;
 }
 
- template <typename T>
+template <typename T>
 void reduceVector(vector<T> &v, vector<uchar> status)
 {
     int j = 0;
@@ -52,9 +52,9 @@ void FeatureTracker::setMask()
     mask.setTo(255);
     
     // prefer to keep features that are tracked for long time
-
+    
     vector<pair<pair<int, max_min_pts>, pair<cv::Point2f, int>>> cnt_pts_id;
-
+    
     for (unsigned int i = 0; i < forw_pts.size(); i++)
         cnt_pts_id.push_back(make_pair(make_pair(track_cnt[i], parallax_cnt[i]), make_pair(forw_pts[i], ids[i])));
     
@@ -71,7 +71,7 @@ void FeatureTracker::setMask()
     for (auto &it : cnt_pts_id)
     {
         if (mask.at<uchar>(it.second.first) == 255)
-        //if(true)
+            //if(true)
         {
             forw_pts.push_back(it.second.first);
             ids.push_back(it.second.second);
@@ -91,7 +91,7 @@ void FeatureTracker::rejectWithF()
     if (forw_pts.size() >= 8)
     {
         vector<uchar> status;
-
+        
         cv::findFundamentalMat(pre_pts, forw_pts, cv::FM_RANSAC, F_THRESHOLD, 0.99, status);
         reduceVector(pre_pts, status);
         reduceVector(cur_pts, status);
@@ -104,10 +104,65 @@ void FeatureTracker::rejectWithF()
 
 /*********************************************************tools function for feature tracker ending*****************************************************/
 
-
-void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_cnt, vector<Point2f> &good_pts, vector<double> &track_len)
+bool FeatureTracker::solveVinsPnP(double header, Vector3d &P, Matrix3d &R, bool vins_normal)
 {
- 
+    if(!vins_normal)
+        return false;
+    /*
+     if(solved_features.size() < 2)
+     {
+     printf("pnp not enough features\n");
+     return false;
+     }
+     */
+    vector<IMG_MSG_LOCAL> feature_msg;
+    int i = 0;
+    for (auto &it : solved_features)
+    {
+        while(ids[i] < it.id)
+        {
+            i++;
+        }
+        if(ids[i] == it.id)
+        {
+            IMG_MSG_LOCAL tmp;
+            tmp = it;
+            tmp.observation = (Vector2d((forw_pts[i].x - PX)/FOCUS_LENGTH_X, (forw_pts[i].y - PY)/FOCUS_LENGTH_Y));
+            feature_msg.push_back(tmp);
+        }
+    }
+    /*
+     if(feature_msg.size() < 2 )
+     {
+     printf("pnp Not enough solved feature!\n");
+     return false;
+     }
+     */
+    vins_pnp.setInit(solved_vins);
+    printf("pnp imu header: ");
+    for(auto &it : imu_msgs)
+    {
+        double t = it.header;
+        if (current_time < 0)
+            current_time = t;
+        double dt = (t - current_time);
+        current_time = t;
+        printf("%lf ",t);
+        vins_pnp.processIMU(dt, it.acc, it.gyr);
+    }
+    printf("image %lf\n", header);
+    vins_pnp.processImage(feature_msg, header);
+    
+    P = vins_pnp.Ps[PNP_SIZE - 1];
+    R = vins_pnp.Rs[PNP_SIZE - 1];
+    Vector3d R_ypr = Utility::R2ypr(R);
+    printf("debug  pnp P: %lf %lf %lf R: %lf %lf %lf %d\n",P.x(), P.y(), P.z(), R_ypr.x(), R_ypr.y(), R_ypr.z(), feature_msg.size());
+    return true;
+}
+
+void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_cnt, vector<Point2f> &good_pts, vector<double> &track_len, double header, Vector3d &P, Matrix3d &R, bool vins_normal)
+{
+    
     result = _img;
     if(forw_img.empty())
         pre_img = cur_img = forw_img = _img;
@@ -122,7 +177,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_
         {
             vector<uchar> status;
             vector<float> err;
-
+            
             //TS(time_track);
             calcOpticalFlowPyrLK(cur_img, forw_img, cur_pts, forw_pts, status, err, cv::Size(21, 21), 3);
             //TE(time_track);
@@ -135,7 +190,25 @@ void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_
             reduceVector(ids, status);
             reduceVector(track_cnt, status);
             reduceVector(parallax_cnt, status);
-
+            
+            //reject outliers
+            if (forw_pts.size() >= 8)
+            {
+                vector<uchar> status;
+                
+                cv::findFundamentalMat(cur_pts, forw_pts, cv::FM_RANSAC, F_THRESHOLD, 0.99, status);
+                reduceVector(cur_pts, status);
+                reduceVector(pre_pts, status);
+                reduceVector(forw_pts, status);
+                reduceVector(ids, status);
+                reduceVector(track_cnt, status);
+                reduceVector(parallax_cnt, status);
+            }
+            
+            TS(debug_pnp);
+            solveVinsPnP(header, P, R, vins_normal);
+            TE(debug_pnp);
+            
             if(img_cnt!=0)
             {
                 for (int i = 0; i< forw_pts.size(); i++)
@@ -156,7 +229,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_
             }
         }
     }
-
+    
     //detect
     {
         
@@ -184,7 +257,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_
             
             setMask();
             int n_max_cnt = MAX_CNT - static_cast<int>(forw_pts.size());
-
+            
             if(n_max_cnt>0)
             {
                 n_pts.clear();
@@ -197,7 +270,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_
             {
                 n_pts.clear();
             }
-
+            
             addPoints();
             //printf("features num after detect: %d\n",static_cast<int>(forw_pts.size()));
             pre_img = forw_img;

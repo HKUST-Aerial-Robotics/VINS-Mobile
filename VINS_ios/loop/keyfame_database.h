@@ -3,7 +3,7 @@
 //  VINS_ios
 //
 //  Created by HKUST Aerial Robotics on 2017/5/2.
-//  Copyright © 2017年 HKUST Aerial Robotics. All rights reserved.
+//  Copyright © 2017 HKUST Aerial Robotics. All rights reserved.
 //
 
 #ifndef keyfame_database_hpp
@@ -17,6 +17,14 @@
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 #include "utility.hpp"
+
+//for save keyframe result
+struct KEYFRAME_DATA
+{
+    double header;
+    Vector3d translation;
+    Quaterniond rotation;
+};
 
 class KeyFrameDatabase
 {
@@ -35,6 +43,7 @@ public:
     void addLoop(int loop_index);
     
     vector<Vector3f> refine_path;
+    vector<KEYFRAME_DATA> all_keyframes;
     vector<int> segment_indexs;
     int max_seg_index, cur_seg_index;
     
@@ -337,7 +346,7 @@ struct FourDOFWeightError
     }
     
     static ceres::CostFunction* Create(const double t_x, const double t_y, const double t_z,
-                                       const double relative_yaw, const double pitch_i, const double roll_i) 
+                                       const double relative_yaw, const double pitch_i, const double roll_i)
     {
         return (new ceres::AutoDiffCostFunction<
                 FourDOFWeightError, 4, 1, 3, 1, 3>(

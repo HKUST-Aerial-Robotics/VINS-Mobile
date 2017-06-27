@@ -10,7 +10,7 @@
 #import <opencv2/imgcodecs/ios.h>
 #import <opencv2/videoio/cap_ios.h>
 #import "feature_tracker.hpp"
-#import <mach/mach_time.h> 
+#import <mach/mach_time.h>
 #import "global_param.hpp"
 #import "VINS.hpp"
 #include <queue>
@@ -41,21 +41,19 @@
 @property (nonatomic, strong) IBOutlet UIImageView* imageView;
 @property (nonatomic, strong) IBOutlet UIImageView* featureImageView;
 
-
-@property (weak, nonatomic) IBOutlet UIButton *stopButton;
-@property (weak, nonatomic) IBOutlet UIButton *startButton;
-
-@property (weak, nonatomic) IBOutlet UIButton *recordButton;
-@property (weak, nonatomic) IBOutlet UIButton *playbackButton;
+@property (weak, nonatomic) IBOutlet UIButton *loopButton;
+@property (weak, nonatomic) IBOutlet UIButton *reinitButton;
 
 - (IBAction)recordButtonPressed:(id)sender;
 - (IBAction)playbackButtonPressed:(id)sender;
 
--(IBAction)startButtonPressed:(id)sender;
--(IBAction)stopButtonPressed:(id)sender;
 @property (weak, nonatomic) IBOutlet UISegmentedControl *switchUI;
 
+@property (nonatomic) BOOL switchUIAREnabled;
+
 - (void)showInputView;
+
+- (void)setVisibleAnimated:(BOOL)visible;
 
 struct IMU_MSG {
     NSTimeInterval header;
@@ -78,6 +76,7 @@ struct IMG_DATA_CACHE {
     cv::Mat equ_image;
     UIImage *image;
 };
+
 struct VINS_DATA_CACHE {
     NSTimeInterval header;
     Vector3f P;

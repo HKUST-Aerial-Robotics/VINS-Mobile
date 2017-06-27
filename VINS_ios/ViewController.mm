@@ -10,150 +10,209 @@
 #import "utility.hpp"
 #import "CameraUtils.h"
 
-#if VINS_FRAMEWORK
-//#import "VINSUnityAPI.h"
-/*for Unity_iPhone, choose camera mode or glass mode
- if true: camera mode, visualization use alighed image and vins result, neither is the latest result
- if false: glass mode, visulization use latest vins result and glasses real image
- */
-//#define CAMERA_MODE true
-#define ENABLE_IMU_PRIDICT true //only enbale in (glass mode) && (Unity_iPhone)
-
-#else
-//for VINS_ios, use camera mode and disable imu predict by default
-//don't change
-//#define CAMERA_MODE true
-#define ENABLE_IMU_PRIDICT false
-//#define DATA_EXPORT true
-#endif
-
 @interface ViewController ()
 @property (weak, nonatomic) IBOutlet UILabel *X_label;
 @property (weak, nonatomic) IBOutlet UILabel *Y_label;
 @property (weak, nonatomic) IBOutlet UILabel *Z_label;
 @property (weak, nonatomic) IBOutlet UILabel *buf_label;
-@property (weak, nonatomic) IBOutlet UIButton *start_button;
 @property (weak, nonatomic) IBOutlet UILabel *total_odom_label;
 @property (weak, nonatomic) IBOutlet UILabel *loop_label;
-@property (weak, nonatomic) IBOutlet UIButton *stop_button;
 @property (weak, nonatomic) IBOutlet UILabel *feature_label;
 @property (weak, nonatomic) IBOutlet UILabel *feature_label2;
 @property (weak, nonatomic) IBOutlet UILabel *feature_label3;
 @property (weak, nonatomic) IBOutlet UISlider *fovSlider;
 @property (weak, nonatomic) IBOutlet UILabel *fovLabel;
-
 @end
 
 @implementation ViewController
 
+/*************************** Save data for debug ***************************/
+
+bool start_record = false;
+
+bool start_playback = false;
+
+bool start_playback_vins = false;
+
+unsigned long imageDataIndex = 0;
+
+unsigned long imageDataReadIndex = 0;
+
+unsigned long imuDataIndex = 0;
+
+unsigned long imuDataReadIndex = 0;
+
+unsigned long vinsDataIndex = 0;
+
+unsigned long vinsDataReadIndex = 0;
+
+queue<IMG_DATA> imgDataBuf;
+
+NSMutableData *imuDataBuf = [[NSMutableData alloc] init];
+
+NSData *imuReader;
+
+NSMutableData *vinsDataBuf = [[NSMutableData alloc] init];
+
+NSData *vinsReader;
+
+IMG_DATA imgData;
+
+IMU_MSG imuData;
+
+KEYFRAME_DATA vinsData;
+
+/*************************** Save data for debug ***************************/
+
+/******************************* UI CONFIG *******************************/
+
+// true:  VINS trajectory is the main view, AR image is in left bottom
+// false: AR image is the main view, VINS is in left bottom
+bool ui_main = false;
+
+bool box_in_AR = false;
+
+bool box_in_trajectory = false;
+
+// If initialized finished, start show is true
+bool start_show = false;
+
+// Indicate the initialization progress rate
+UIActivityIndicatorView *indicator;
+
+// Used for show VINS trajectory and AR
 @synthesize imageView;
+
+// Used for show initialization UI
 @synthesize featureImageView;
-@synthesize startButton;
+
 @synthesize videoCamera;
 
+// Used for show alert if vocabulary is not ready
+UIAlertView *alertView;
+
+// Textview for showing vins status
+int loop_old_index = -1;
+
+float x_view_last = -5000;
+
+float y_view_last = -5000;
+
+float z_view_last = -5000;
+
+float total_odom = 0;
+
+/******************************* UI CONFIG *******************************/
+
 FeatureTracker featuretracker;
+
 VINS vins;
 
+// Store the fesature data processed by featuretracker
 queue<ImgConstPtr> img_msg_buf;
+
+// Store the IMU data for vins
 queue<ImuConstPtr> imu_msg_buf;
-queue<Vector3f> draw_buf;
-int waiting_lists = 0;  //number of measurements waiting to be processed
 
+// Store the IMU data for motion-only vins
+queue<IMU_MSG_LOCAL> local_imu_msg_buf;
 
-float time_interval = 0;
+// The number of measurements waiting to be processed
+int waiting_lists = 0;
+
 int frame_cnt = 0;
 
-/******************************* UI CONFIG *******************************/
-bool ui_main = false;  // true: UI is the main view, origin image is in left bottom
-// false: origin is the main view, UI is in left bottom
-bool box_in_AR = false;
-bool box_in_trajectory = false;
-bool CAMERA_MODE = true;
-bool SHOW_TRACK = true;
-bool start_show = false;
-UIActivityIndicatorView *indicator;
-/******************************* UI CONFIG *******************************/
-
-UIImage *image_ui;
-UIImage *image_origin;
-Matrix3f RcForView;
-
+// Lock the feature and imu data buffer
 std::mutex m_buf;
-std::mutex m_time;
+
 std::condition_variable con;
 
 NSTimeInterval current_time = -1;
+
 NSTimeInterval lateast_imu_time = -1;
+
 int imu_prepare = 0;
-Vector3d rotation_imu;
 
-//for pridict
-double latest_time = -1;
-Eigen::Vector3d tmp_P;
-Eigen::Quaterniond tmp_Q;
-Eigen::Vector3d tmp_V;
-Eigen::Vector3d tmp_Ba;
-Eigen::Vector3d tmp_Bg;
-Eigen::Vector3d acc_0;
-Eigen::Vector3d gyr_0;
-
+// MotionManager for read imu data
 CMMotionManager *motionManager;
 
-//for save data
-bool start_record = false;
-bool start_playback = false;
-bool start_playback_vins = false;
-unsigned long imageDataIndex = 0;
-unsigned long imageDataReadIndex = 0;
-unsigned long imuDataIndex = 0;
-unsigned long imuDataReadIndex = 0;
-unsigned long vinsDataIndex = 0;
-unsigned long vinsDataReadIndex = 0;
-queue<IMG_DATA> imgDataBuf;
-NSMutableData *imuDataBuf = [[NSMutableData alloc] init];
-NSData *imuReader;
-NSMutableData *vinsDataBuf = [[NSMutableData alloc] init];
-NSData *vinsReader;
-IMG_DATA imgData;
-IMU_MSG imuData;
-
-//for loop closure
-queue<pair<cv::Mat, double>> image_buf_loop;
-std::mutex i_buf;
-LoopClosure *loop_closure;
-KeyFrameDatabase keyframe_database;
-int process_keyframe_cnt = 0;
-int miss_keyframe_num = 0;
-int keyframe_freq = 0;
-int global_frame_cnt = 0;
-int loop_check_cnt = 0;
-bool voc_init_ok = false;
-int old_index = -1;
-UIAlertView *alertView;
-vector<int> erase_index;
-Eigen::Vector3d loop_correct_t = Eigen::Vector3d(0, 0, 0);
-Eigen::Matrix3d loop_correct_r = Eigen::Matrix3d::Identity();
+// Segment the trajectory using color when re-initialize
 int segmentation_index = 0;
 
-//for textview
-int loop_old_index = -1;
-float x_view_last = -5000;
-float y_view_last = -5000;
-float z_view_last = -5000;
-float total_odom = 0;
+// Lock the solved VINS data feedback to featuretracker
+std::mutex m_depth_feedback;
 
+// Lock the IMU data feedback to featuretracker
+std::mutex m_imu_feedback;
+
+// Solved VINS feature feedback to featuretracker
+list<IMG_MSG_LOCAL> solved_features;
+
+// Solved VINS status feedback to featuretracker
+VINS_RESULT solved_vins;
+
+/******************************* Loop Closure ******************************/
+
+// Raw image data buffer for extracting FAST feature
+queue<pair<cv::Mat, double>> image_buf_loop;
+
+// Lock the image_buf_loop
+std::mutex m_image_buf_loop;
+
+// Detect loop
+LoopClosure *loop_closure;
+
+// Keyframe database
+KeyFrameDatabase keyframe_database;
+
+// Control the loop detection frequency
+int keyframe_freq = 0;
+
+// Index the keyframe
+int global_frame_cnt = 0;
+
+// Record the checked loop frame
+int loop_check_cnt = 0;
+
+// Indicate if breif vocabulary read finish
+bool voc_init_ok = false;
+
+// Indicate the loop frame index
+int old_index = -1;
+
+
+// Store the indexs of the keyframe which need to be erased
+vector<int> erase_index;
+
+// Translation drift
+Eigen::Vector3d loop_correct_t = Eigen::Vector3d(0, 0, 0);
+
+// Rotation drift
+Eigen::Matrix3d loop_correct_r = Eigen::Matrix3d::Identity();
+
+/******************************* Loop Closure ******************************/
+
+// MARK: Unity Camera Mode Switching
+// Ground truth from UI switch property "self.switchUIAREnabled"
+
+// Implied, updated by updateCameraMode()
+bool imuPredictEnabled = false;
+
+// Implied, updated by updateCameraMode()
+bool cameraMode = true;
+
+// Implied, updated by updateCameraMode()
+bool imageCacheEnabled = cameraMode && !USE_PNP;
+
+
+// MARK: ViewController Methods
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     
     /*******************************************Camera setup*******************************************/
-#if VINS_FRAMEWORK
-    self.videoCamera = [[CvVideoCamera alloc] init];
-    ui_main = true;
-#else
     self.videoCamera = [[CvVideoCamera alloc]
                         initWithParentView:imageView];
-#endif
     
     self.videoCamera.delegate = self;
     self.videoCamera.defaultAVCaptureDevicePosition =
@@ -201,14 +260,10 @@ float total_odom = 0;
     
     //give projection variance
     vins.setIMUModel();
-    RcForView = MatrixXf::Identity(3,3);
     
     //UI
-    startButton.layer.zPosition = 1;
-    _recordButton.layer.zPosition = 1;
-    _playbackButton.layer.zPosition = 1;
-    startButton.enabled = YES;
-    _stopButton.enabled = NO;
+    _loopButton.layer.zPosition = 1;
+    _reinitButton.layer.zPosition = 1;
     alertView = [[UIAlertView alloc]initWithTitle:@"WARN" message:@"please wait for vocabulary loading!"
                                          delegate:self cancelButtonTitle:@"confirm" otherButtonTitles:@"cancel", nil];
     
@@ -242,20 +297,26 @@ float total_odom = 0;
     bool deviceCheck = setGlobalParam(deviceName());
     if(!deviceCheck)
     {
-        UIAlertController *alertDevice = [UIAlertController alertControllerWithTitle:@"Error"
-                                                                             message:@"Unsupported Device!" preferredStyle:UIAlertControllerStyleAlert];
-        UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action)
-                                       {exit(0);}];
-        UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action)
-                                   {exit(0);}];
-        [alertDevice addAction:cancelAction];
+        UIAlertController *alertDevice = [UIAlertController alertControllerWithTitle:@"Unsupported Device"
+                                                                             message:@"Supported devices are: iPhone7 Plus, iPhone7, iPhone6s Plus, iPhone6s" preferredStyle:UIAlertControllerStyleAlert];
+        
+        UIAlertAction *okAction = [UIAlertAction
+                                   actionWithTitle:@"OK"
+                                   style:UIAlertActionStyleDefault
+                                   handler:^(UIAlertAction * _Nonnull action) {
+                                       
+                                   }];
+        
         [alertDevice addAction:okAction];
+        
         dispatch_async(dispatch_get_main_queue(), ^ {
             [self presentViewController:alertDevice animated:YES completion:nil];
         });
     }
     vins.setExtrinsic();
     vins.setIMUModel();
+    featuretracker.vins_pnp.setExtrinsic();
+    featuretracker.vins_pnp.setIMUModel();
     bool versionCheck = iosVersion();
     if(!versionCheck)
     {
@@ -272,10 +333,6 @@ float total_odom = 0;
         });
     }
     
-#if !VINS_FRAMEWORK
-    [self.fovLabel removeFromSuperview];
-    [self.fovSlider removeFromSuperview];
-#endif
     
     /*********************************************Start VINS*******************************************/
     if(versionCheck && deviceCheck)
@@ -287,7 +344,6 @@ float total_odom = 0;
         frameSize = cv::Size(videoCamera.imageWidth,
                              videoCamera.imageHeight);
     }
-    
 }
 
 /*
@@ -301,7 +357,10 @@ cv::Mat lateast_equa;
 UIImage *lateast_image;
 Vector3f lateast_P;
 Matrix3f lateast_R;
-bool vins_updated = false;
+
+cv::Mat pnp_image;
+Vector3d pnp_P;
+Matrix3d pnp_R;
 
 - (void)processImage:(cv::Mat&)image
 {
@@ -383,80 +442,64 @@ bool vins_updated = false;
         clahe->apply(gray, img_equa);
         //img_equa = gray;
         TS(time_feature);
-        
+        if(USE_PNP)
+        {
+            m_depth_feedback.lock();
+            featuretracker.solved_features = solved_features;
+            featuretracker.solved_vins = solved_vins;
+            m_depth_feedback.unlock();
+            
+            m_imu_feedback.lock();
+            featuretracker.imu_msgs = getImuMeasurements(img_msg->header);
+            m_imu_feedback.unlock();
+        }
         vector<Point2f> good_pts;
         vector<double> track_len;
-        featuretracker.readImage(img_equa, img_with_feature,frame_cnt, good_pts, track_len);
+        bool vins_normal = (vins.solver_flag == VINS::NON_LINEAR);
+        featuretracker.readImage(img_equa, img_with_feature,frame_cnt, good_pts, track_len, img_msg->header, pnp_P, pnp_R, vins_normal);
         TE(time_feature);
-#if VINS_FRAMEWORK
-#else
+        
         //cvtColor(img_equa, img_equa, CV_GRAY2BGR);
-        if(SHOW_TRACK)
+        for (int i = 0; i < good_pts.size(); i++)
         {
-            for (int i = 0; i < good_pts.size(); i++)
-            {
-                cv::circle(image, good_pts[i], 0, cv::Scalar(255 * (1 - track_len[i]), 0, 255 * track_len[i]), 7); //BGR
-            }
+            cv::circle(image, good_pts[i], 0, cv::Scalar(255 * (1 - track_len[i]), 0, 255 * track_len[i]), 7); //BGR
         }
-#endif
+        
         //image msg buf
-        int is_calculate = false;
         if(featuretracker.img_cnt==0)
         {
             img_msg->point_clouds = featuretracker.image_msg;
             //img_msg callback
             m_buf.lock();
             img_msg_buf.push(img_msg);
-            is_calculate = true;
             //NSLog(@"Img timestamp %lf",img_msg_buf.front()->header);
             m_buf.unlock();
             con.notify_one();
-            if(CAMERA_MODE)
+            if(imageCacheEnabled)
             {
                 image_data_cache.header = img_msg->header;
-#if VINS_FRAMEWORK
                 image_data_cache.image = MatToUIImage(image);
-#else
-                if(SHOW_TRACK)
-                {
-                    image_data_cache.image = MatToUIImage(image);
-                }
-                else
-                {
-                    image_data_cache.image = MatToUIImage(image);
-                }
-#endif
                 image_pool.push(image_data_cache);
             }
             
             if(LOOP_CLOSURE)
             {
-                i_buf.lock();
+                m_image_buf_loop.lock();
                 cv::Mat loop_image = gray.clone();
                 image_buf_loop.push(make_pair(loop_image, img_msg->header));
                 if(image_buf_loop.size() > WINDOW_SIZE)
                     image_buf_loop.pop();
-                i_buf.unlock();
+                m_image_buf_loop.unlock();
             }
         }
-        else
-        {
-            is_calculate = false;
-            if(CAMERA_MODE)
-            {
-                //image_data_cache.image = MatToUIImage(image);
-                //image_data_cache.equ_image = img_equa.clone();
-                
-                //image_pool.push(image_data_cache);
-            }
-        }
+        
         featuretracker.img_cnt = (featuretracker.img_cnt + 1) % FREQ;
         for (int i = 0; i < good_pts.size(); i++)
         {
             cv::circle(image, good_pts[i], 0, cv::Scalar(255 * (1 - track_len[i]), 0, 255 * track_len[i]), 7); //BGR
         }
         TS(visualize);
-        if(CAMERA_MODE)
+        if(imageCacheEnabled)
         {
             //use aligned vins and image
             if(!vins_pool.empty() && !image_pool.empty())
@@ -471,7 +514,6 @@ bool vins_updated = false;
                 }
                 if(!vins_pool.empty() && !image_pool.empty())
                 {
-                    vins_updated = true;
                     lateast_image = image_pool.front().image;
                     lateast_P = vins_pool.front().P;
                     lateast_R = vins_pool.front().R;
@@ -484,44 +526,39 @@ bool vins_updated = false;
                     image_pool.pop();
             }
         }
+        if(USE_PNP)
+        {
+            lateast_P = pnp_P.cast<float>();
+            lateast_R = pnp_R.cast<float>();
+        }
         if(ui_main || start_show == false || vins.solver_flag != VINS::NON_LINEAR)  //show image and AR
         {
-#if VINS_FRAMEWORK
-            if (CAMERA_MODE || vins.solver_flag != VINS::NON_LINEAR) {
-                //VINSUnityAPI::UpdateBackgroundTexture(image);
-            }
-#else
-            if(CAMERA_MODE)
+            cv::Mat tmp2;
+            if(vins.solver_flag == VINS::NON_LINEAR && start_show)
             {
-                cv::Mat tmp2;
-                if(vins.solver_flag == VINS::NON_LINEAR && start_show)
-                {
-                    cv::Mat tmp;
-                    vins.drawresult.startInit = true;
-                    vins.drawresult.drawAR(lateast_equa, vins.imageAI, vins.correct_point_cloud, lateast_P, lateast_R, vins_updated);
-                    vins_updated = false;
-                    
-                    cv::cvtColor(image, tmp, CV_RGBA2BGR);
-                    cv::Mat mask;
-                    cv::Mat imageAI = vins.imageAI;
-                    if(!imageAI.empty())
-                        cv::cvtColor(imageAI, mask, CV_RGB2GRAY);
-                    imageAI.copyTo(tmp,mask);
-                    cv::cvtColor(tmp, image, CV_BGRA2BGR);
-                }
-                if(DEBUG_MODE)
-                {
-                    cv::flip(lateast_equa, image, -1);
-                }
-                else
-                {
-                    cv::flip(image,tmp2,-1);
-                    image = tmp2;
-                    if(vins.solver_flag != VINS::NON_LINEAR || !start_show)
-                        cv::cvtColor(image, image, CV_RGBA2BGR);
-                }
+                cv::Mat tmp;
+                vins.drawresult.startInit = true;
+                vins.drawresult.drawAR(vins.imageAI, vins.correct_point_cloud, lateast_P, lateast_R);
+                
+                cv::cvtColor(image, tmp, CV_RGBA2BGR);
+                cv::Mat mask;
+                cv::Mat imageAI = vins.imageAI;
+                if(!imageAI.empty())
+                    cv::cvtColor(imageAI, mask, CV_RGB2GRAY);
+                imageAI.copyTo(tmp,mask);
+                cv::cvtColor(tmp, image, CV_BGRA2BGR);
             }
-#endif
+            if(DEBUG_MODE)
+            {
+                cv::flip(lateast_equa, image, -1);
+            }
+            else
+            {
+                cv::flip(image,tmp2,-1);
+                image = tmp2;
+                if(vins.solver_flag != VINS::NON_LINEAR || !start_show)
+                    cv::cvtColor(image, image, CV_RGBA2BGR);
+            }
         }
         else //show VINS
         {
@@ -533,7 +570,6 @@ bool vins_updated = false;
                 vins.drawresult.Reprojection(vins.image_show, vins.correct_point_cloud, vins.correct_Rs, vins.correct_Ps, box_in_trajectory);
             }
             cv::Mat tmp2 = vins.image_show;
-            
             
             cv::Mat down_origin_image;
             cv::resize(image.t(), down_origin_image, cv::Size(200, 150));
@@ -555,15 +591,11 @@ bool vins_updated = false;
         TE(visualize);
     } else {
         // Not capturing, means not started yet
-#if VINS_FRAMEWORK
-        //VINSUnityAPI::UpdateBackgroundTexture(image);
-#else
         cv::cvtColor(image, image, CV_BGRA2RGB);
         cv::flip(image,image,-1);
         //BOOL isNeedRotation = image.size() != frameSize;
         //if (isNeedRotation)
         //    image = image.t();
-#endif
     }
 }
 
@@ -607,6 +639,27 @@ getMeasurements()
     return measurements;
 }
 
+vector<IMU_MSG_LOCAL> getImuMeasurements(double header)
+{
+    vector<IMU_MSG_LOCAL> imu_measurements;
+    static double last_header = -1;
+    if(last_header < 0 || local_imu_msg_buf.empty())
+    {
+        last_header = header;
+        return imu_measurements;
+    }
+    
+    while(!local_imu_msg_buf.empty() && local_imu_msg_buf.front().header <= last_header)
+        local_imu_msg_buf.pop();
+    while(!local_imu_msg_buf.empty() && local_imu_msg_buf.front().header <= header)
+    {
+        imu_measurements.emplace_back(local_imu_msg_buf.front());
+        local_imu_msg_buf.pop();
+    }
+    last_header = header;
+    return imu_measurements;
+}
+
 void send_imu(const ImuConstPtr &imu_msg)
 {
     NSTimeInterval t = imu_msg->header;
@@ -630,18 +683,6 @@ void send_imu(const ImuConstPtr &imu_msg)
     vins.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
 }
 
-void update()
-{
-    latest_time = lateast_imu_time;
-    tmp_P = vins.Ps[WINDOW_SIZE];
-    tmp_Q = Eigen::Quaterniond{vins.Rs[WINDOW_SIZE]};
-    tmp_V = vins.Vs[WINDOW_SIZE];
-    tmp_Ba = vins.Bas[WINDOW_SIZE];
-    tmp_Bg = vins.Bgs[WINDOW_SIZE];
-    acc_0 = vins.acc_0;
-    gyr_0 = vins.gyr_0;
-    //printf("predict update: x = %.3f, y = %.3f z = %.3f\n",tmp_P(0),tmp_P(1),tmp_P(2));
-}
 
 /*
  VINS thread: this thread tightly fuses the visual measurements and imu data and solves pose, velocity, IMU bias, 3D feature for all frame in WINNDOW
@@ -688,14 +729,40 @@ bool start_global_optimization = false;
         double time_now = [[NSProcessInfo processInfo] systemUptime];
         double time_vins = vins.Headers[WINDOW_SIZE];
         NSLog(@"vins delay %lf", time_now - time_vins);
-        if(vins.solver_flag == vins.NON_LINEAR)
+        
+        //update feature position for front-end
+        if(vins.solver_flag == vins.NON_LINEAR && USE_PNP)
         {
-            //Vector3d rotation_vins = Utility::R2ypr(vins.Rs[WINDOW_SIZE]);
-            //printf("attitude compare\n");
-            //printf("attitude vins pitch: %lf, roll: %lf\n", rotation_vins.y(), rotation_vins.z());
-            //printf("attitude imu  pitch: %lf, roll: %lf\n", rotation_imu.y(), rotation_imu.z());
+            m_depth_feedback.lock();
+            solved_vins.header = vins.Headers[WINDOW_SIZE - 1];
+            solved_vins.Ba = vins.Bas[WINDOW_SIZE - 1];
+            solved_vins.Bg = vins.Bgs[WINDOW_SIZE - 1];
+            solved_vins.P = vins.correct_Ps[WINDOW_SIZE-1].cast<double>();
+            solved_vins.R = vins.correct_Rs[WINDOW_SIZE-1].cast<double>();
+            solved_vins.V = vins.Vs[WINDOW_SIZE - 1];
+            Vector3d R_ypr = Utility::R2ypr(solved_vins.R);
+            //printf("debug vins pnp P: %lf %lf %lf R: %lf %lf %lf------------------\n",solved_vins.Ba.x(), solved_vins.Ba.y(), solved_vins.Ba.z(), solved_vins.Bg.x(), solved_vins.Bg.y(), solved_vins.Bg.z());
+            printf("debug vins pnp headers %lf %d P: %lf %lf %lf R: %lf %lf %lf------------------\n",solved_vins.header, 1, solved_vins.P.x(), solved_vins.P.y(), solved_vins.P.z(), R_ypr.x(), R_ypr.y(), R_ypr.z());
+            solved_features.clear();
+            for (auto &it_per_id : vins.f_manager.feature)
+            {
+                it_per_id.used_num = it_per_id.feature_per_frame.size();
+                if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
+                    continue;
+                if (it_per_id.solve_flag != 1)
+                    continue;
+                int imu_i = it_per_id.start_frame;
+                Vector3d pts_i = it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
+                IMG_MSG_LOCAL tmp_feature;
+                tmp_feature.id = it_per_id.feature_id;
+                tmp_feature.position = vins.r_drift * vins.Rs[imu_i] * (vins.ric * pts_i + vins.tic) + vins.r_drift * vins.Ps[imu_i] + vins.t_drift;
+                tmp_feature.track_num = (int)it_per_id.feature_per_frame.size();
+                solved_features.push_back(tmp_feature);
+            }
+            m_depth_feedback.unlock();
         }
-        if(CAMERA_MODE)
+        
+        if(imageCacheEnabled)
         {
             //add state into vins buff for alignwith image
             if(vins.solver_flag == VINS::NON_LINEAR && start_show)
@@ -738,7 +805,7 @@ bool start_global_optimization = false;
                      **/
                     Vector3d T_w_i = vins.Ps[WINDOW_SIZE - 2];
                     Matrix3d R_w_i = vins.Rs[WINDOW_SIZE - 2];
-                    i_buf.lock();
+                    m_image_buf_loop.lock();
                     while(!image_buf_loop.empty() && image_buf_loop.front().second < vins.Headers[WINDOW_SIZE - 2])
                     {
                         image_buf_loop.pop();
@@ -760,6 +827,7 @@ bool start_global_optimization = false;
                         
                         global_frame_cnt++;
                     }
+                    m_image_buf_loop.unlock();
                     
                 }
                 else
@@ -811,13 +879,13 @@ bool start_global_optimization = false;
                     }
                 }
                 keyframe_freq++;
-                i_buf.unlock();
             }
         }
-        update();
         waiting_lists--;
+        
         //finish solve one frame
         [self performSelectorOnMainThread:@selector(showInputView) withObject:nil waitUntilDone:YES];
+        
     }
 }
 
@@ -849,10 +917,11 @@ bool start_global_optimization = false;
         if(!erase_index.empty() && loop_closure != NULL)
             loop_closure->eraseIndex(erase_index);
         
+        bool loop_succ = false;
         if (loop_check_cnt < global_frame_cnt)
         {
-            KeyFrame* cur_kf = keyframe_database.getLastUncheckKeyframe();
-            assert(loop_check_cnt == cur_kf->global_index);
+            KeyFrame* cur_kf = keyframe_database.getLastKeyframe();
+            //assert(loop_check_cnt == cur_kf->global_index);
             loop_check_cnt++;
             cur_kf->check_loop = 1;
             
@@ -864,8 +933,6 @@ bool start_global_optimization = false;
             std::vector<cv::Point2f> measurements_cur;
             std::vector<int> features_id;
             std::vector<cv::Point2f> measurements_cur_origin = cur_kf->measurements;
-            
-            bool loop_succ = false;
             
             vector<cv::Point2f> cur_pts;
             vector<cv::Point2f> old_pts;
@@ -880,13 +947,13 @@ bool start_global_optimization = false;
                     printf("NO such frame in keyframe_database\n");
                     assert(false);
                 }
-                printf("loop succ %d with %drd image\n", process_keyframe_cnt-1, old_index);
+                printf("loop succ with %drd image\n", old_index);
                 assert(old_index!=-1);
                 
                 Vector3d T_w_i_old;
                 Matrix3d R_w_i_old;
                 
-                old_kf->getOriginPose(T_w_i_old, R_w_i_old);
+                old_kf->getPose(T_w_i_old, R_w_i_old);
                 cur_kf->findConnectionWithOldFrame(old_kf, cur_pts, old_pts,
                                                    measurements_old, measurements_old_norm);
                 measurements_cur = cur_kf->measurements;
@@ -913,14 +980,14 @@ bool start_global_optimization = false;
                     cur_kf->detectLoop(old_index);
                     keyframe_database.addLoop(old_index);
                     old_kf->is_looped = 1;
+                    loop_old_index = old_index;
                 }
             }
             cur_kf->image.release();
         }
-        else
-        {
-            i_buf.unlock();
-        }
+        
+        if(loop_succ)
+            [NSThread sleepForTimeInterval:2.0];
         [NSThread sleepForTimeInterval:0.05];
     }
     //[self process_loop_detection];
@@ -935,14 +1002,14 @@ bool start_global_optimization = false;
         if(start_global_optimization)
         {
             start_global_optimization = false;
-            TS(debug_loop_thread);
+            TS(loop_thread);
             keyframe_database.optimize4DoFLoopPoseGraph(kf_global_index,
                                                         loop_correct_t,
                                                         loop_correct_r);
             vins.t_drift = loop_correct_t;
             vins.r_drift = loop_correct_r;
-            TE(debug_loop_thread);
-            [NSThread sleepForTimeInterval:0.17];
+            TE(loop_thread);
+            [NSThread sleepForTimeInterval:1.17];
         }
         [NSThread sleepForTimeInterval:0.03];
     }
@@ -981,7 +1048,6 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
                                         withHandler:^(CMAccelerometerData *latestAcc, NSError *error)
      {
          double header = motionManager.deviceMotion.timestamp;
-         rotation_imu << motionManager.deviceMotion.attitude.yaw * 180.0 / M_PI,  //yaw
          motionManager.deviceMotion.attitude.roll * 180.0 / M_PI,  //pitch for vins
          motionManager.deviceMotion.attitude.pitch * 180.0 / M_PI;  //roll for vins
          if(imu_prepare<10)
@@ -1039,6 +1105,28 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
              return;
          }
          
+#ifdef READ_VINS
+         if(start_playback_vins)
+         {
+             if(vinsDataFinished)
+                 return;
+             NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+             NSString *documentsPath = [paths objectAtIndex:0];
+             NSString *filePath = [documentsPath stringByAppendingPathComponent:@"VINS"];
+             vinsReader = [NSData dataWithContentsOfFile:filePath];
+             
+             [vinsReader getBytes:&vinsData range: NSMakeRange(vinsDataReadIndex * sizeof(vinsData), sizeof(vinsData))];
+             vinsDataReadIndex++;
+             if(vinsData.header == 0)
+             {
+                 printf("record play vins finished\n");
+                 vinsDataFinished = true;
+                 return;
+             }
+             printf("record play vins: %4d, %lf %lf %lf %lf %lf %lf %lf %lf\n",vinsDataReadIndex, vinsData.header, vinsData.translation.x(), vinsData.translation.y(), vinsData.translation.z(),
+                    vinsData.rotation.w(), vinsData.rotation.x(), vinsData.rotation.y(),vinsData.rotation.z());
+         }
+#endif
          //for save data
          if(start_playback)
          {
@@ -1074,54 +1162,20 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
              //NSLog(@"record: imu %lf, %lu",imuData.header,imuDataIndex);
          }
          
-         m_time.lock();
          lateast_imu_time = imu_msg->header;
-         m_time.unlock();
-#if VINS_FRAMEWORK
-         //predict status
-         if(!CAMERA_MODE && ENABLE_IMU_PRIDICT)
-         {
-             if(latest_time > 0)
-             {
-                 double t = imu_msg->header;
-                 double dt = t - latest_time;
-                 latest_time = t;
-                 
-                 double dx = imu_msg->acc.x();
-                 double dy = imu_msg->acc.y();
-                 double dz = imu_msg->acc.z();
-                 Eigen::Vector3d linear_acceleration{dx, dy, dz};
-                 
-                 double rx = imu_msg->gyr.x();
-                 double ry = imu_msg->gyr.y();
-                 double rz = imu_msg->gyr.z();
-                 Eigen::Vector3d angular_velocity{rx, ry, rz};
-                 
-                 Vector3d g{0,0,GRAVITY};
-                 Eigen::Vector3d un_acc_0 = tmp_Q * (acc_0 - tmp_Ba - tmp_Q.inverse() * g);
-                 
-                 Eigen::Vector3d un_gyr = 0.5 * (gyr_0 + angular_velocity) - tmp_Bg;
-                 //Eigen::Vector3d un_gyr = gyr_0 - tmp_Bg;
-                 tmp_Q = tmp_Q * Utility::deltaQ(un_gyr * dt);
-                 
-                 Eigen::Vector3d un_acc_1 = tmp_Q * (linear_acceleration - tmp_Ba - tmp_Q.inverse() * g);
-                 
-                 Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
-                 double acc_threshold = 0.2;
-                 un_acc << ((fabs(un_acc.x())<acc_threshold)?0.0:un_acc.x()),
-                 ((fabs(un_acc.y())<acc_threshold)?0.0:un_acc.y()),
-                 ((fabs(un_acc.z())<acc_threshold)?0.0:un_acc.z());
-                 //printf("predict: ax = %.3lf, ay = %.3lf, az = %.3lf\n",un_acc(0),un_acc(1),un_acc(2));
-                 tmp_P = tmp_P + dt * tmp_V + 0.5 * dt * dt * un_acc;
-                 tmp_V = tmp_V + dt * un_acc;
-                 
-                 //acc_0 = linear_acceleration;
-                 //gyr_0 = angular_velocity;
-                 //printf("predict x = %.3f, y = %.3f z = %.3f\n",tmp_P(0),tmp_P(1),tmp_P(2));
-             }
-         }
-#endif
+         
          //img_msg callback
+         if(USE_PNP)
+         {
+             IMU_MSG_LOCAL imu_msg_local;
+             imu_msg_local.header = imu_msg->header;
+             imu_msg_local.acc = imu_msg->acc;
+             imu_msg_local.gyr = imu_msg->gyr;
+             
+             m_imu_feedback.lock();
+             local_imu_msg_buf.push(imu_msg_local);
+             m_imu_feedback.unlock();
+         }
          m_buf.lock();
          imu_msg_buf.push(imu_msg);
          //NSLog(@"IMU_buf timestamp %lf, acc_x = %lf",imu_msg_buf.front()->header,imu_msg_buf.front()->acc.x());
@@ -1190,10 +1244,6 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
             [indicator setHidden:YES];
             [featureImageView setHidden:YES];
             
-            startButton.enabled = false;
-            _stopButton.enabled = true;
-            
-            start_active = false;
             start_show = true;
             finish_init = true;
         }
@@ -1228,9 +1278,9 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     stringView = [NSString stringWithFormat:@"BUF:%d",waiting_lists];
     [_buf_label setText:stringView];
     //NSString *stringZ = [NSString stringWithFormat:@"Z:%.2f",z_view, vins.f_manager.getFeatureCount()];
-    if(old_index != -1)
+    if(loop_old_index != -1)
     {
-        stringView = [NSString stringWithFormat:@"LOOP with %d",old_index];
+        stringView = [NSString stringWithFormat:@"LOOP with %d",loop_old_index];
         [_loop_label setText:stringView];
     }
     stringView = [NSString stringWithFormat:@"FEATURE: %d",vins.feature_num];
@@ -1246,72 +1296,30 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
 
 /********************************************************************UI Button Controler********************************************************************/
 
-bool start_active = true;
-
--(IBAction)startButtonPressed:(id)sender
-{
-    printf("start\n");
-    
-    if(!voc_init_ok && LOOP_CLOSURE)
-    {
-        [alertView show];
-    }
-    else if(start_active)
-    {
-        start_playback_vins = true;
-        startButton.enabled = false;
-        _stopButton.enabled = true;
-        
-        start_active = false;
-        start_show = true;
-    }
-}
-
-
--(IBAction)extrange:(id)sender   //actually is stop button
-{
-    if(!start_active)
-    {
-        startButton.enabled = true;
-        _stopButton.enabled = false;
-        
-        start_active = true;
-    }
-}
-
 -(IBAction)switchUI:(UISegmentedControl *)sender
 {
     switch (_switchUI.selectedSegmentIndex)
     {
         case 0:
-#if VINS_FRAMEWORK
-            CAMERA_MODE = false;
-#else
+            self.switchUIAREnabled = YES;
             printf("show AR\n");
             ui_main = true;
             box_in_AR= true;
-#endif
             break;
         case 1:
-#if VINS_FRAMEWORK
-            CAMERA_MODE = true;
-#else
+            self.switchUIAREnabled = NO;
             ui_main = false;
             if (box_in_AR)
                 box_in_trajectory = true;
             printf("show VINS\n");
-#endif
             break;
         default:
             break;
     }
 }
+
 - (IBAction)fovSliderValueChanged:(id)sender {
     self.fovLabel.text = [[NSNumber numberWithFloat:self.fovSlider.value] stringValue];
-    
-#if VINS_FRAMEWORK
-    //VINSUnityAPI::SetCameraFOV(self.fovSlider.value);
-#endif
 }
 
 - (void) handlePan:(UIPanGestureRecognizer*) recognizer
@@ -1480,16 +1488,16 @@ bool start_active = true;
     }
 }
 
-- (IBAction)recordButtonPressed:(id)sender {
+- (IBAction)loopButtonPressed:(id)sender {
     if(LOOP_CLOSURE)
     {
         LOOP_CLOSURE = false;
-        [_recordButton setTitle:@"ENLOOP" forState:UIControlStateNormal];
+        [_loopButton setTitle:@"ENLOOP" forState:UIControlStateNormal];
     }
     else
     {
         LOOP_CLOSURE = true;
-        [_recordButton setTitle:@"UNLOOP" forState:UIControlStateNormal];
+        [_loopButton setTitle:@"UNLOOP" forState:UIControlStateNormal];
     }
     /*
      start_record = !start_record;
@@ -1513,7 +1521,8 @@ bool start_active = true;
      */
 }
 
-- (IBAction)playbackButtonPressed:(id)sender {
+- (IBAction)reinitButtonPressed:(id)sender {
+    vins.drawresult.planeInit = false;
     vins.failure_hand = true;
     vins.drawresult.change_color = true;
     vins.drawresult.indexs.push_back(vins.drawresult.pose.size());
@@ -1714,10 +1723,6 @@ bool start_active = true;
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
-    
-#if VINS_FRAMEWORK
-    //VINSUnityAPI::TestNativeTexture();
-#endif
 }
 
 - (void)viewDidDisappear:(BOOL)animated
@@ -1812,89 +1817,5 @@ bool iosVersion()
         return false;
     }
 }
-
 @end
 
-/**************************************************************UNITY INTERFACE**********************************************************/
-/*
-#if VINS_FRAMEWORK
-extern "C" {
-    // Expose the current position and rotation to Unity.
-    // Unity will call this function every frame at 30 FPS.
-    // In Unity code, we simply assign
-    //   camera.position = new Vector3(x, y, z);
-    //   camera.rotation = new Quaternion(qx, qy, qz, qw);
-    //
-    // TODO:
-    // VINS uses a right-handed system, but Unity uses a left-handed system,
-    //   as in https://github.com/wandermyz/VINS_Unity_XCode/blob/master/docs/coordinate.png
-    // We need to somehow transform the "position" and "rotation" below,
-    //   so that the exported x,y,z,qx,qy,qz,qw is in Unity coordinate system.
-    void VINSGetCurrentPose(float *x, float *y, float *z, float *qx, float *qy, float *qz, float *qw) {
-        static Matrix3d initR;
-        initR << 0,  0,  -1.0,
-        0.0,  1.0,  0.0,
-        1.0,  0.0,  0.0;
-        
-        if (vins.solver_flag != vins.NON_LINEAR) {
-            *x = *y = *z = 0;
-            *qx = *qy = *qz = 0;
-            *qw = 1;
-            return;
-        }
-        
-        if(!vins.drawresult.planeInit)
-        {
-            Vector3f model;
-            vins.drawresult.computeAR(vins.correct_point_cloud, model);
-            //model << 1.76, 0, 0;
-            cout << "plane for unity: "<< model.transpose() << endl;
-            model = Utility::Vins2Unity(model.cast<double>()).cast<float>();
-            
-            VINSUnityAPI::SetCameraSeeThrough(CAMERA_MODE);
-            //VINSUnityAPI::SetModelSpaceTransform(model, Vector3f(0.63, 0.63, 0.63), Quaternionf(1, 0, 0, 0));
-            VINSUnityAPI::SetModelSpaceTransform(model, Vector3f(0.03, 0.03, 0.03), Quaternionf(1, 0, 0, 0));
-            if(CAMERA_MODE)
-            {
-                VINSUnityAPI::SetCameraFOV(40.23109);    //iPhone7 camera fov
-            }
-            else
-            {
-                VINSUnityAPI::SetCameraFOV(49.7);    //eye fov??? cannot believe, need discussion
-            }
-            VINSUnityAPI::SetCameraOffset(Vector3f(0, 0, 0));
-        }
-        
-        Vector3d position_vins, position;
-        Quaterniond rotation_vins, rotation;
-        if(CAMERA_MODE)
-        {
-            position_vins = lateast_P.cast<double>() + lateast_R.cast<double>() * Vector3d(TIC_X, TIC_Y, TIC_Z);
-            rotation_vins = Eigen::Quaterniond(lateast_R.cast<double>()); // Eigen::Quaterniond(vins.Rs[WINDOW_SIZE]);
-        }
-        else
-        {
-            position_vins = tmp_P + tmp_Q.toRotationMatrix() * Vector3d(-0.082, 0, 0);  //where TIC should be the extrinsic between glasses center and phone IMU
-            rotation_vins = tmp_Q;
-            
-            //position_vins = Vector3d(0, 0, 0) + Vector3d(-0.082, 0, 0);  //where TIC should be the extrinsic between glasses center and phone IMU
-            //Quaterniond q_eye(Utility::ypr2R(Vector3d(0, -90, 0)));
-            //rotation_vins = q_eye;
-        }
-        
-        position = Utility::Vins2Unity(position_vins);
-        *x = (float)position.x();
-        *y = (float)position.y();
-        *z = (float)position.z();
-        
-        rotation = Utility::Vins2Unity(rotation_vins);
-        *qx = (float)rotation.coeffs().x();
-        *qy = (float)rotation.coeffs().y();
-        *qz = (float)rotation.coeffs().z();
-        *qw = (float)rotation.coeffs().w();
-    }
-}
-
-
-#endif
-*/

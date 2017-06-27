@@ -29,42 +29,42 @@ private:
 
 struct matchCluster
 {
-	//stores nearest points with old vins point
-	std::vector<int> indexs; //bow points index
-	int best_index;
+    //stores nearest points with old vins point
+    std::vector<int> indexs; //bow points index
+    int best_index;
 };
 
 class KeyFrame
 {
 public:
-	KeyFrame(double _header, int _global_index, Eigen::Vector3d _T_w_c, Eigen::Matrix3d _R_w_c, cv::Mat &_image, const char *_brief_pattern_file, const int _segment_index);
-	void setExtrinsic(Eigen::Vector3d T, Eigen::Matrix3d R);
-	void initPtsByReprojection(Eigen::Vector3d Ti_predict,
-									 Eigen::Matrix3d Ri_predict,
-									 std::vector<cv::Point2f> &measurements_predict);
-	void initPoseForPnP(Eigen::Vector3d &T_c_w,
-						Eigen::Matrix3d &R_c_w);
-	void cam2Imu(Eigen::Vector3d T_c_w,
-                       Eigen::Matrix3d R_c_w,
-                       Eigen::Vector3d &T_w_i,
-                       Eigen::Matrix3d &R_w_i);
-	void rejectWithF(vector<cv::Point2f> &measurements_old,
-          			 vector<cv::Point2f> &measurements_old_norm);
+    KeyFrame(double _header, int _global_index, Eigen::Vector3d _T_w_c, Eigen::Matrix3d _R_w_c, cv::Mat &_image, const char *_brief_pattern_file, const int _segment_index);
+    void setExtrinsic(Eigen::Vector3d T, Eigen::Matrix3d R);
+    void initPtsByReprojection(Eigen::Vector3d Ti_predict,
+                               Eigen::Matrix3d Ri_predict,
+                               std::vector<cv::Point2f> &measurements_predict);
+    void initPoseForPnP(Eigen::Vector3d &T_c_w,
+                        Eigen::Matrix3d &R_c_w);
+    void cam2Imu(Eigen::Vector3d T_c_w,
+                 Eigen::Matrix3d R_c_w,
+                 Eigen::Vector3d &T_w_i,
+                 Eigen::Matrix3d &R_w_i);
+    void rejectWithF(vector<cv::Point2f> &measurements_old,
+                     vector<cv::Point2f> &measurements_old_norm);
     void extractBrief(cv::Mat &image);
-	void searchInBoW(std::vector<cv::Point2f> &cur_pts,
+    void searchInBoW(std::vector<cv::Point2f> &cur_pts,
                      std::vector<cv::Point2f> &old_pts,
                      std::vector<cv::Point2f> &old_measurements);
-	void buildKeyFrameFeatures(VINS &vins);
-	
+    void buildKeyFrameFeatures(VINS &vins);
+    
     void searchByDes(std::vector<cv::Point2f> &measurements_old,
                      std::vector<cv::Point2f> &measurements_old_norm,
                      const std::vector<BRIEF::bitset> &descriptors_old,
                      const std::vector<cv::KeyPoint> &keypoints_old);
-
-	bool solveOldPoseByPnP(std::vector<cv::Point2f> &measurements_old_norm, 
+    
+    bool solveOldPoseByPnP(std::vector<cv::Point2f> &measurements_old_norm,
                            const Eigen::Vector3d T_w_i_old, const Eigen::Matrix3d R_w_i_old,
                            Eigen::Vector3d &T_w_i_refine, Eigen::Matrix3d &R_w_i_refine);
-
+    
     bool findConnectionWithOldFrame(const KeyFrame* old_kf,
                                     const std::vector<cv::Point2f> &cur_pts, const std::vector<cv::Point2f> &old_pts,
                                     std::vector<cv::Point2f> &measurements_old, std::vector<cv::Point2f> &measurements_old_norm);
@@ -90,15 +90,15 @@ public:
     
     int HammingDis(const BRIEF::bitset &a, const BRIEF::bitset &b);
     
-	// data 
-	double header;
-	std::vector<Eigen::Vector3d> point_clouds, point_clouds_origin;
-	//feature in origin image plane
-	std::vector<cv::Point2f> measurements, measurements_origin;
-	//feature in normalize image plane
-	std::vector<cv::Point2f> pts_normalize;
-	//feature ID
-	std::vector<int> features_id, features_id_origin;
+    // data
+    double header;
+    std::vector<Eigen::Vector3d> point_clouds, point_clouds_origin;
+    //feature in origin image plane
+    std::vector<cv::Point2f> measurements, measurements_origin;
+    //feature in normalize image plane
+    std::vector<cv::Point2f> pts_normalize;
+    //feature ID
+    std::vector<int> features_id, features_id_origin;
     //feature descriptor
     std::vector<BRIEF::bitset> descriptors;
     //keypoints
@@ -129,7 +129,7 @@ private:
     std::mutex mMutexPose;
     std::vector<cv::KeyPoint> window_keypoints;
     std::vector<BRIEF::bitset> window_descriptors;
-
+    
 };
 
 #endif

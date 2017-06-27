@@ -23,7 +23,6 @@
 #include "inital_sfm.hpp"
 #include "initial_aligment.hpp"
 #include "motion_estimator.hpp"
-#include "loop_closure_factor.hpp"
 
 extern bool LOOP_CLOSURE;
 struct RetriveData
@@ -47,7 +46,7 @@ struct RetriveData
 
 class VINS
 {
-  public:
+public:
     
     typedef IMUFactor IMUFactor_t;
     
@@ -71,14 +70,11 @@ class VINS
     Matrix3d ric;
     Vector3d tic;
     MarginalizationFlag  marginalization_flag;
-    bool Rs_init;
     Vector3d Ps[10 * (WINDOW_SIZE + 1)];
     Vector3d Vs[10 * (WINDOW_SIZE + 1)];
     Matrix3d Rs[10 * (WINDOW_SIZE + 1)];
     Vector3d Bas[10 * (WINDOW_SIZE + 1)];
     Vector3d Bgs[10 * (WINDOW_SIZE + 1)];
-    Vector3d Ps_retrive;
-    Quaterniond Qs_retrive;
     
     double para_Pose[WINDOW_SIZE + 1][SIZE_POSE];
     double para_SpeedBias[WINDOW_SIZE + 1][SIZE_SPEEDBIAS];
@@ -99,7 +95,6 @@ class VINS
     vector<Vector3f> point_cloud;
     
     int feature_num;
-    bool propagate_init_ok;
     
     IntegrationBase *pre_integrations[10 * (WINDOW_SIZE + 1)];
     bool first_imu;
@@ -112,15 +107,8 @@ class VINS
     double Headers[10 * (WINDOW_SIZE + 1)];
     Vector3d g;
     
-    vector<Vector3d> init_point_cloud;
-    vector<Vector3d> margin_map;
-    vector<Vector3d> key_poses;
     vector<Vector3d> init_poses;
-    vector<Vector3d> init_velocity;
-    vector<Matrix3d> init_rotation;
-    vector<Eigen::Quaterniond> init_quaternion;
     double initial_timestamp;
-    vector<Vector3d> gt_init_poses;
     Vector3d init_P;
     Vector3d init_V;
     Matrix3d init_R;
@@ -141,11 +129,8 @@ class VINS
     
     //for visulization
     DrawResult drawresult;
-    bool updating_image_show;
-    bool updating_imageAI;
     cv::Mat image_show;
     cv::Mat imageAI;
-    Matrix3f RcForView;
     enum InitStatus
     {
         FAIL_IMU,

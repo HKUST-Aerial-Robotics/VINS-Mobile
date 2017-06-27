@@ -69,6 +69,7 @@ public:
     float locationLongPressY;
     bool longPressFlag;
     
+    
     float theta_p, phy_p, radius_p;
     float X0_p, Y0_p;
     int finger_state;
@@ -100,7 +101,7 @@ public:
     float X0, Y0;
     float X0AR, Y0AR;
     
-
+    
     bool look_down;
     //for optical flow EKF
     cv::Mat pre_image;
@@ -108,7 +109,7 @@ public:
     vector<Point2f> pre_pts;
     vector<Point2f> cur_pts;
     vector<Point2f> n_pts;
-    Point2f flow;  //velocity of the pixel 
+    Point2f flow;  //velocity of the pixel
     bool KF_init;
     
     vector<Scalar> trajectory_color;
@@ -117,10 +118,10 @@ public:
     //4 sizes
     vector<Vector2f> pre_status, cur_status;
     vector<Matrix2f> K;
-    vector<Matrix2f> cur_cov, pre_cov; 
+    vector<Matrix2f> cur_cov, pre_cov;
     void computeAR(vector<Vector3f> &point_cloud, Vector3f &model);
     
-    void drawAR(cv:: Mat &equ_image, cv::Mat &result, vector<Vector3f> &point_cloud, Vector3f P_latest, Matrix3f R_latest, bool vins_update);
+    void drawAR(cv::Mat &result, vector<Vector3f> &point_cloud, Vector3f P_latest, Matrix3f R_latest);
     void drawGround(cv::Mat &result, vector<Vector3f> &point_cloud, Vector3f P_latest, Matrix3f R_latest);
     void drawBox(cv::Mat &result, Vector3f corner_0, Vector3f corner_x, Vector3f corner_y, Vector3f corner_z, float size, Vector3f P_latest, Matrix3f R_latest, bool inAR);
     void Reprojection(cv::Mat &result, vector<Vector3f> &point_cloud, const Matrix3f *R_window,const Vector3f *T_window, bool box_in_trajectory);

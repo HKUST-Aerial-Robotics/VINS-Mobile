@@ -13,7 +13,7 @@ bool LOOP_CLOSURE = true;
 VINS::VINS()
 :f_manager{Rs},fail_times{0},
 failure_hand{false},
-     drawresult{0.0, 0.0, 0.0, 0.0, 0.0, 7.0}
+drawresult{0.0, 0.0, 0.0, 0.0, 0.0, 7.0}
 {
     printf("init VINS begins\n");
     t_drift.setZero();
@@ -55,8 +55,8 @@ void VINS::clearState()
         pre_integrations[i] = nullptr;
     }
     tic << TIC_X,
-           TIC_Y,
-           TIC_Z;
+    TIC_Y,
+    TIC_Z;
     ric = Utility::ypr2R(Vector3d(RIC_y,RIC_p,RIC_r));
     
     frame_count = 0;
@@ -82,8 +82,8 @@ void VINS::clearState()
 void VINS::setExtrinsic()
 {
     tic << TIC_X,
-           TIC_Y,
-           TIC_Z;
+    TIC_Y,
+    TIC_Z;
     ric = Utility::ypr2R(Vector3d(RIC_y,RIC_p,RIC_r));
 }
 void VINS::old2new()
@@ -152,25 +152,14 @@ void VINS::new2old()
     
     for (int i = 0; i <= WINDOW_SIZE; i++)
     {
-        //if ((!LOOP_CLOSURE) || (!loop_enable))
-        if(true)
-        {
-            Rs[i] = rot_diff * Quaterniond(para_Pose[i][6], para_Pose[i][3], para_Pose[i][4], para_Pose[i][5]).normalized().toRotationMatrix();
-            Ps[i] = rot_diff * Vector3d(para_Pose[i][0] - para_Pose[0][0],
+        
+        Rs[i] = rot_diff * Quaterniond(para_Pose[i][6], para_Pose[i][3], para_Pose[i][4], para_Pose[i][5]).normalized().toRotationMatrix();
+        Ps[i] = rot_diff * Vector3d(para_Pose[i][0] - para_Pose[0][0],
                                     para_Pose[i][1] - para_Pose[0][1],
                                     para_Pose[i][2] - para_Pose[0][2]) + origin_P0;
-            Vs[i] = rot_diff * Vector3d(para_SpeedBias[i][0],
-                                        para_SpeedBias[i][1],
-                                        para_SpeedBias[i][2]);
-        }
-        else
-        {
-            Rs[i] = Quaterniond(para_Pose[i][6], para_Pose[i][3], para_Pose[i][4], para_Pose[i][5]).normalized().toRotationMatrix();
-            Ps[i] = Vector3d(para_Pose[i][0], para_Pose[i][1], para_Pose[i][2]);
-            Vs[i] = Vector3d(para_SpeedBias[i][0],
-                             para_SpeedBias[i][1],
-                             para_SpeedBias[i][2]);
-        }
+        Vs[i] = rot_diff * Vector3d(para_SpeedBias[i][0],
+                                    para_SpeedBias[i][1],
+                                    para_SpeedBias[i][2]);
         
         Bas[i] = Vector3d(para_SpeedBias[i][3],
                           para_SpeedBias[i][4],
@@ -182,18 +171,38 @@ void VINS::new2old()
     }
     Vector3d cur_P0 = Ps[0];
     
+    if(LOOP_CLOSURE && loop_enable)
+    {
+        loop_enable = false;
+        for(int i = 0; i< WINDOW_SIZE; i++)
+        {
+            if(front_pose.header == Headers[i])
+            {
+                Matrix3d Rs_loop = Quaterniond(front_pose.loop_pose[6],  front_pose.loop_pose[3],  front_pose.loop_pose[4],  front_pose.loop_pose[5]).normalized().toRotationMatrix();
+                Vector3d Ps_loop = Vector3d( front_pose.loop_pose[0],  front_pose.loop_pose[1],  front_pose.loop_pose[2]);
+                
+                Rs_loop = rot_diff * Rs_loop;
+                Ps_loop = rot_diff * (Ps_loop - Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2])) + origin_P0;
+                
+                double drift_yaw = Utility::R2ypr(front_pose.Q_old.toRotationMatrix()).x() - Utility::R2ypr(Rs_loop).x();
+                r_drift = Utility::ypr2R(Vector3d(drift_yaw, 0, 0));
+                //r_drift = front_pose.Q_old.toRotationMatrix() * Rs_loop.transpose();
+                t_drift = front_pose.P_old - r_drift * Ps_loop;
+            }
+        }
+    }
     
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
         tic = Vector3d(para_Ex_Pose[i][0],
-                          para_Ex_Pose[i][1],
-                          para_Ex_Pose[i][2]);
+                       para_Ex_Pose[i][1],
+                       para_Ex_Pose[i][2]);
         ric = Quaterniond(para_Ex_Pose[i][6],
-                             para_Ex_Pose[i][3],
-                             para_Ex_Pose[i][4],
-                             para_Ex_Pose[i][5]).toRotationMatrix();
+                          para_Ex_Pose[i][3],
+                          para_Ex_Pose[i][4],
+                          para_Ex_Pose[i][5]).toRotationMatrix();
     }
-
+    
     VectorXd dep = f_manager.getDepthVector();
     for (int i = 0; i < f_manager.getFeatureCount(); i++)
     {
@@ -212,11 +221,11 @@ bool VINS::failureDetection()
         is_failure = true;
     }
     /*
-    if (Bas[WINDOW_SIZE].norm() > 1)
-    {
-        printf("failure  big IMU acc bias estimation %f\n", Bas[WINDOW_SIZE].norm());
-        is_failure = true;
-    }
+     if (Bas[WINDOW_SIZE].norm() > 1)
+     {
+     printf("failure  big IMU acc bias estimation %f\n", Bas[WINDOW_SIZE].norm());
+     is_failure = true;
+     }
      */
     if (Bgs[WINDOW_SIZE].norm() > 1)
     {
@@ -256,37 +265,37 @@ bool VINS::failureDetection()
 }
 
 /*
-void VINS::failureRecover()
-{
-    int his_index = 0;
-    for(int i = 0; i < WINDOW_SIZE; i++)
-    {
-        if(Headers_his[i] == Headers[0])
-        {
-            his_index = i;
-            break;
-        }
-        if(i == WINDOW_SIZE -1)
-            his_index = i;
-    }
-    Vector3d his_R0 = Utility::R2ypr(Rs_his[his_index]);
-    
-    Vector3d his_P0 = Ps_his[his_index];
-    
-    Vector3d cur_R0 = Utility::R2ypr(Rs[0]);
-    Vector3d cur_P0 = Ps[0];
-    
-    double y_diff = his_R0.x() - cur_R0.x();
-    
-    Matrix3d rot_diff = Utility::ypr2R(Vector3d(y_diff, 0, 0));
-    
-    for (int i = 0; i <= WINDOW_SIZE; i++)
-    {
-        Rs[i] = rot_diff * Rs[i];
-        Ps[i] = rot_diff * (Ps[i] - cur_P0) + his_P0;
-        Vs[i] = rot_diff * Vs[i];
-    }
-}
+ void VINS::failureRecover()
+ {
+ int his_index = 0;
+ for(int i = 0; i < WINDOW_SIZE; i++)
+ {
+ if(Headers_his[i] == Headers[0])
+ {
+ his_index = i;
+ break;
+ }
+ if(i == WINDOW_SIZE -1)
+ his_index = i;
+ }
+ Vector3d his_R0 = Utility::R2ypr(Rs_his[his_index]);
+ 
+ Vector3d his_P0 = Ps_his[his_index];
+ 
+ Vector3d cur_R0 = Utility::R2ypr(Rs[0]);
+ Vector3d cur_P0 = Ps[0];
+ 
+ double y_diff = his_R0.x() - cur_R0.x();
+ 
+ Matrix3d rot_diff = Utility::ypr2R(Vector3d(y_diff, 0, 0));
+ 
+ for (int i = 0; i <= WINDOW_SIZE; i++)
+ {
+ Rs[i] = rot_diff * Rs[i];
+ Ps[i] = rot_diff * (Ps[i] - cur_P0) + his_P0;
+ Vs[i] = rot_diff * Vs[i];
+ }
+ }
  */
 
 void VINS::reInit()
@@ -341,7 +350,7 @@ void VINS::processIMU(double dt, const Vector3d &linear_acceleration, const Vect
         pre_integrations[frame_count]->push_back(dt, linear_acceleration, angular_velocity);
         
         if(solver_flag != NON_LINEAR) //comments because of recovering
-        tmp_pre_integration->push_back(dt, linear_acceleration, angular_velocity);
+            tmp_pre_integration->push_back(dt, linear_acceleration, angular_velocity);
         
         dt_buf[frame_count].push_back(dt);
         linear_acceleration_buf[frame_count].push_back(linear_acceleration);
@@ -374,13 +383,13 @@ void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_nu
     else
         marginalization_flag = MARGIN_SECOND_NEW;
     
-//    printf("marginalization_flag %d\n", int(marginalization_flag));
-//    printf("this frame is-------------------------------%s\n", marginalization_flag ? "reject" : "accept");
-//    printf("Solving %d\n", frame_count);
+    //    printf("marginalization_flag %d\n", int(marginalization_flag));
+    //    printf("this frame is-------------------------------%s\n", marginalization_flag ? "reject" : "accept");
+    //    printf("Solving %d\n", frame_count);
     printf("number of feature: %d %d\n", feature_num = f_manager.getFeatureCount(), track_num);
     
     Headers[frame_count] = header;
-
+    
     if(solver_flag == INITIAL)
     {
         ImageFrame imageframe(image_msg, header);
@@ -494,13 +503,13 @@ void VINS::solve_ceres(int buf_num)
     }
     
     old2new();
-
+    
     //marginalization factor
     if (last_marginalization_info != nullptr)
     {
         MarginalizationFactor *marginalization_factor = new MarginalizationFactor(last_marginalization_info);
         problem.AddResidualBlock(marginalization_factor, NULL,
-                                     last_marginalization_parameter_blocks);
+                                 last_marginalization_parameter_blocks);
     }
     
     //IMU factor
@@ -583,9 +592,7 @@ void VINS::solve_ceres(int buf_num)
                             front_pose.loop_pose[k] = para_Pose[i][k];
                         ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
                         problem.AddParameterBlock(front_pose.loop_pose, SIZE_POSE, local_parameterization);
-                
-                        Ps_retrive = front_pose.P_old;
-                        Qs_retrive = front_pose.Q_old.toRotationMatrix();
+                        
                         int retrive_feature_index = 0;
                         int feature_index = -1;
                         int loop_factor_cnt = 0;
@@ -610,7 +617,6 @@ void VINS::solve_ceres(int buf_num)
                                     Vector3d pts_j = Vector3d(front_pose.measurements[retrive_feature_index].x, front_pose.measurements[retrive_feature_index].y, 1.0);
                                     Vector3d pts_i = it_per_id.feature_per_frame[0].point;
                                     //double ratio = 1.0;
-                                    //LoopClosureFactor *f = new LoopClosureFactor(pts_i, pts_j, Ps_retrive, Qs_retrive, ratio);
                                     ProjectionFactor *f = new ProjectionFactor(pts_i, pts_j);
                                     problem.AddResidualBlock(f, loss_function, para_Pose[start], front_pose.loop_pose, para_Ex_Pose[0], para_Feature[feature_index]);
                                     
@@ -645,7 +651,7 @@ void VINS::solve_ceres(int buf_num)
         options.max_solver_time_in_seconds = SOLVER_TIME * 2.0 / 3.0;
     else
         options.max_solver_time_in_seconds = SOLVER_TIME / 2.0;
-//    options.max_solver_time_in_seconds = 0.04;
+    
     ceres::Solver::Summary summary;
     //TE(prepare_solver);
     TS(ceres);
@@ -654,6 +660,7 @@ void VINS::solve_ceres(int buf_num)
     final_cost = summary.final_cost;
     //cout << summary.FullReport() << endl;
     TE(ceres);
+    
     if(LOOP_CLOSURE)
     {
         for(int i = 0; i< WINDOW_SIZE; i++)
@@ -671,6 +678,7 @@ void VINS::solve_ceres(int buf_num)
             }
         }
     }
+    
     new2old();
     
     vector<ceres::ResidualBlockId> residual_set;
@@ -732,77 +740,16 @@ void VINS::solve_ceres(int buf_num)
                     if (imu_i == imu_j)
                         continue;
                     ProjectionFactor *f = new ProjectionFactor(pts_i, pts_j);
-
+                    
                     ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
-                                                                                    vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index]},
-                                                                                    vector<int>{0, 3});
+                                                                                   vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index]},
+                                                                                   vector<int>{0, 3});
                     marginalization_info->addResidualBlockInfo(residual_block_info);
                     
                 }
             }
         }
-        //if(LOOP_CLOSURE)
-        if(false)
-        {
-            if(!front_pose.measurements.empty())
-            {
-                if(front_pose.header >= Headers[0])
-                {
-                    //tmp_retrive_pose_buf.push(front_pose);
-                    for(int i = 0; i < WINDOW_SIZE; i++)
-                    {
-                        if(front_pose.header == Headers[i] && front_pose.use)
-                        {
-                            Ps_retrive = front_pose.P_old;
-                            Qs_retrive = front_pose.Q_old.toRotationMatrix();
-                            
-                            int retrive_feature_index = 0;
-                            int feature_index = -1;
-                            int loop_factor_cnt = 0;
-                            for (auto &it_per_id : f_manager.feature)
-                            {
-                                it_per_id.used_num = it_per_id.feature_per_frame.size();
-                                if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
-                                    continue;
-                                
-                                ++feature_index;
-                                int start = it_per_id.start_frame;
-                                //feature has been obeserved in ith frame
-                                int end = (start + it_per_id.feature_per_frame.size() - i - 1);
-                                if(start <= i && end >=0)
-                                {
-                                    while(front_pose.features_ids[retrive_feature_index] < it_per_id.feature_id)
-                                    {
-                                        retrive_feature_index++;
-                                    }
-                                    
-                                    if(front_pose.features_ids[retrive_feature_index] == it_per_id.feature_id)
-                                    {
-                                        //add loop factor
-                                        if(start == 0)
-                                        {
-                                            Vector3d pts_j = Vector3d(front_pose.measurements[retrive_feature_index].x, front_pose.measurements[retrive_feature_index].y, 1.0);
-                                            Vector3d pts_i = it_per_id.feature_per_frame[0].point;
-                                            
-                                            LoopClosureFactor *f = new LoopClosureFactor(pts_i, pts_j, Ps_retrive, Qs_retrive, 1.0);
-                                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
-                                                                                                           vector<double *>{para_Pose[start], para_Ex_Pose[0], para_Feature[feature_index]},
-                                                                                                           vector<int>{0, 2});
-                                            marginalization_info->addResidualBlockInfo(residual_block_info);
-                                        }
-                                        retrive_feature_index++;
-                                        loop_factor_cnt++;
-                                    }
-                                    
-                                }
-                            }
-                            printf("marginalize %d loop factor\n", loop_factor_cnt);
-                        }
-                    }
-                }
-            }
-            
-        }
+        
         TS(per_marginalization);
         marginalization_info->preMarginalize(); //??
         TE(per_marginalization);
@@ -850,7 +797,7 @@ void VINS::solve_ceres(int buf_num)
                 
                 marginalization_info->addResidualBlockInfo(residual_block_info);
             }
-        
+            
             marginalization_info->preMarginalize();
             marginalization_info->marginalize();
             
@@ -889,44 +836,44 @@ bool VINS::solveInitial()
     printf("PS %lf %lf %lf\n", Ps[0].x(),Ps[0].y(), Ps[0].z());
     //check imu observibility
     /*
-    {
-        map<double, ImageFrame>::iterator frame_it;
-        Vector3d sum_g;
-        for (frame_it = all_image_frame.begin(), frame_it++; frame_it != all_image_frame.end(); frame_it++)
-        {
-            double dt = frame_it->second.pre_integration->sum_dt;
-            if(dt == 0)
-            {
-                printf("init IMU variation not enouth!\n");
-                init_status = FAIL_IMU;
-                fail_times++;
-                return false;
-            }
-            Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
-            sum_g += tmp_g;
-        }
-        
-        Vector3d aver_g;
-        aver_g = sum_g * 1.0 / ((int)all_image_frame.size() - 1);
-        cout << "aver_g " << aver_g.transpose() << endl;
-        double var = 0;
-        for (frame_it = all_image_frame.begin(), frame_it++; frame_it != all_image_frame.end(); frame_it++)
-        {
-            double dt = frame_it->second.pre_integration->sum_dt;
-            Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
-            var += (tmp_g - aver_g).transpose() * (tmp_g - aver_g);
-            //cout << "frame g " << tmp_g.transpose() << endl;
-        }
-        var = sqrt(var / ((int)all_image_frame.size() - 1));
-        printf("IMU variation %f!\n", var);
-        if(var < 0.25)
-        {
-            printf("init IMU variation not enouth!\n");
-            init_status = FAIL_IMU;
-            fail_times++;
-            return false;
-        }
-    }
+     {
+     map<double, ImageFrame>::iterator frame_it;
+     Vector3d sum_g;
+     for (frame_it = all_image_frame.begin(), frame_it++; frame_it != all_image_frame.end(); frame_it++)
+     {
+     double dt = frame_it->second.pre_integration->sum_dt;
+     if(dt == 0)
+     {
+     printf("init IMU variation not enouth!\n");
+     init_status = FAIL_IMU;
+     fail_times++;
+     return false;
+     }
+     Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
+     sum_g += tmp_g;
+     }
+     
+     Vector3d aver_g;
+     aver_g = sum_g * 1.0 / ((int)all_image_frame.size() - 1);
+     cout << "aver_g " << aver_g.transpose() << endl;
+     double var = 0;
+     for (frame_it = all_image_frame.begin(), frame_it++; frame_it != all_image_frame.end(); frame_it++)
+     {
+     double dt = frame_it->second.pre_integration->sum_dt;
+     Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
+     var += (tmp_g - aver_g).transpose() * (tmp_g - aver_g);
+     //cout << "frame g " << tmp_g.transpose() << endl;
+     }
+     var = sqrt(var / ((int)all_image_frame.size() - 1));
+     printf("IMU variation %f!\n", var);
+     if(var < 0.25)
+     {
+     printf("init IMU variation not enouth!\n");
+     init_status = FAIL_IMU;
+     fail_times++;
+     return false;
+     }
+     }
      */
     // global sfm
     Quaterniond *Q = new Quaterniond[frame_count + 1];
@@ -1024,7 +971,7 @@ bool VINS::solveInitial()
         cv::Mat K = (cv::Mat_<double>(3, 3) << 1, 0, 0,
                      0, 1, 0,
                      0, 0, 1);
-
+        
         if(pts_3_vector.size() < 6 )
         {
             printf("init Not enough points for solve pnp !\n");
@@ -1256,7 +1203,7 @@ void VINS::slideWindow()
                 double tmp_dt = dt_buf[frame_count][i];
                 Vector3d tmp_linear_acceleration = linear_acceleration_buf[frame_count][i];
                 Vector3d tmp_angular_velocity = angular_velocity_buf[frame_count][i];
-             
+                
                 pre_integrations[frame_count - 1]->push_back(tmp_dt, tmp_linear_acceleration, tmp_angular_velocity);
                 
                 dt_buf[frame_count - 1].push_back(tmp_dt);
@@ -1279,7 +1226,7 @@ void VINS::slideWindow()
             dt_buf[WINDOW_SIZE].clear();
             linear_acceleration_buf[WINDOW_SIZE].clear();
             angular_velocity_buf[WINDOW_SIZE].clear();
-
+            
             slideWindowNew();
         }
     }
@@ -1317,7 +1264,7 @@ void VINS::slideWindowOld()
     }
     else
         f_manager.removeBack();
-
+    
 }
 void VINS::slideWindowNew()
 {

@@ -23,7 +23,6 @@
 		8A4DD0261E6C141D009FCC78 /* libjpeg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C22203C01E6889C300B48629 /* libjpeg.a */; };
 		8A4DD0281E6C1442009FCC78 /* projection_facor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C25458F61DBB28E20011DF1C /* projection_facor.cpp */; };
 		8A4DD0291E6C1442009FCC78 /* marginalization_factor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C25459031DBB89170011DF1C /* marginalization_factor.cpp */; };
-		8A4DD02C1E6C1442009FCC78 /* loop_closure_factor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22203B61E68161D00B48629 /* loop_closure_factor.cpp */; };
 		8A4DD02E1E6C14E2009FCC78 /* brief_pattern.yml in Resources */ = {isa = PBXBuildFile; fileRef = C22203B11E680C6600B48629 /* brief_pattern.yml */; };
 		8AA6E0341E768D2B002DCA4A /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8AA6E0331E768D2B002DCA4A /* Metal.framework */; };
 		8AB374841E6BA37B00C1E398 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2FCEA931DE6B2BE001682A2 /* CoreMotion.framework */; };
@@ -73,12 +72,13 @@
 		C22203AD1E67124100B48629 /* keyframe.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22203A81E67124100B48629 /* keyframe.cpp */; };
 		C22203AE1E67124100B48629 /* loop_closure.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22203AB1E67124100B48629 /* loop_closure.cpp */; };
 		C22203B31E680C6600B48629 /* brief_pattern.yml in Resources */ = {isa = PBXBuildFile; fileRef = C22203B11E680C6600B48629 /* brief_pattern.yml */; };
-		C22203B81E68161D00B48629 /* loop_closure_factor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22203B61E68161D00B48629 /* loop_closure_factor.cpp */; };
 		C22203C11E6889C300B48629 /* boost.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C22203BF1E6889C300B48629 /* boost.a */; };
 		C22203C21E6889C300B48629 /* libjpeg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C22203C01E6889C300B48629 /* libjpeg.a */; };
 		C2442F7D1EB8D61800008A26 /* keyfame_database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2442F7B1EB8D61800008A26 /* keyfame_database.cpp */; };
 		C2442F911EBE137600008A26 /* delaunay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2442F8B1EBE137600008A26 /* delaunay.cpp */; };
 		C2442F921EBE137600008A26 /* triangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2442F8E1EBE137600008A26 /* triangle.cpp */; };
+		C24B640F1F02A35000C42D53 /* perspective_factor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C24B640D1F02A35000C42D53 /* perspective_factor.cpp */; };
+		C24B64121F02A3AE00C42D53 /* vins_pnp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C24B64101F02A3AE00C42D53 /* vins_pnp.cpp */; };
 		C25458F41DBB279B0011DF1C /* libceres.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C25458F31DBB279B0011DF1C /* libceres.a */; };
 		C25458F81DBB28E20011DF1C /* projection_facor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C25458F61DBB28E20011DF1C /* projection_facor.cpp */; };
 		C25458FC1DBB2D240011DF1C /* utility.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C25458FA1DBB2D240011DF1C /* utility.cpp */; };
@@ -174,8 +174,6 @@
 		C22203AB1E67124100B48629 /* loop_closure.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = loop_closure.cpp; path = loop/loop_closure.cpp; sourceTree = "<group>"; };
 		C22203AC1E67124100B48629 /* loop_closure.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = loop_closure.h; path = loop/loop_closure.h; sourceTree = "<group>"; };
 		C22203B11E680C6600B48629 /* brief_pattern.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = brief_pattern.yml; path = Resources/brief_pattern.yml; sourceTree = SOURCE_ROOT; };
-		C22203B61E68161D00B48629 /* loop_closure_factor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = loop_closure_factor.cpp; sourceTree = "<group>"; };
-		C22203B71E68161D00B48629 /* loop_closure_factor.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = loop_closure_factor.hpp; sourceTree = "<group>"; };
 		C22203BF1E6889C300B48629 /* boost.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = boost.a; path = Resources/boost.a; sourceTree = "<group>"; };
 		C22203C01E6889C300B48629 /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = Resources/libjpeg.a; sourceTree = "<group>"; };
 		C2442F7B1EB8D61800008A26 /* keyfame_database.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = keyfame_database.cpp; path = loop/keyfame_database.cpp; sourceTree = "<group>"; };
@@ -186,6 +184,11 @@
 		C2442F8E1EBE137600008A26 /* triangle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = triangle.cpp; path = delaunay/triangle.cpp; sourceTree = "<group>"; };
 		C2442F8F1EBE137600008A26 /* triangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = triangle.h; path = delaunay/triangle.h; sourceTree = "<group>"; };
 		C2442F901EBE137600008A26 /* vector2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vector2.h; path = delaunay/vector2.h; sourceTree = "<group>"; };
+		C24B640C1F02A33100C42D53 /* imu_factor_pnp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = imu_factor_pnp.h; sourceTree = "<group>"; };
+		C24B640D1F02A35000C42D53 /* perspective_factor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = perspective_factor.cpp; sourceTree = "<group>"; };
+		C24B640E1F02A35000C42D53 /* perspective_factor.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = perspective_factor.hpp; sourceTree = "<group>"; };
+		C24B64101F02A3AE00C42D53 /* vins_pnp.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vins_pnp.cpp; sourceTree = "<group>"; };
+		C24B64111F02A3AE00C42D53 /* vins_pnp.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = vins_pnp.hpp; sourceTree = "<group>"; };
 		C25458E81DB8D0920011DF1C /* global_param.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = global_param.hpp; sourceTree = "<group>"; };
 		C25458F31DBB279B0011DF1C /* libceres.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libceres.a; path = "../../../ceres-solver/ceres-bin/lib/libceres.a"; sourceTree = "<group>"; };
 		C25458F61DBB28E20011DF1C /* projection_facor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = projection_facor.cpp; sourceTree = "<group>"; };
@@ -383,8 +386,9 @@
 				C25459041DBB89170011DF1C /* marginalization_factor.hpp */,
 				C2AB044A1DE84FA500DBF09A /* integration_base.h */,
 				C2AB044C1DE8585400DBF09A /* imu_factor.h */,
-				C22203B61E68161D00B48629 /* loop_closure_factor.cpp */,
-				C22203B71E68161D00B48629 /* loop_closure_factor.hpp */,
+				C24B640C1F02A33100C42D53 /* imu_factor_pnp.h */,
+				C24B640D1F02A35000C42D53 /* perspective_factor.cpp */,
+				C24B640E1F02A35000C42D53 /* perspective_factor.hpp */,
 			);
 			name = factor;
 			sourceTree = "<group>";
@@ -520,6 +524,8 @@
 			children = (
 				C2B5378E1DB64EA100E235BC /* feature_tracker.cpp */,
 				C2B5378F1DB64EA100E235BC /* feature_tracker.hpp */,
+				C24B64101F02A3AE00C42D53 /* vins_pnp.cpp */,
+				C24B64111F02A3AE00C42D53 /* vins_pnp.hpp */,
 			);
 			name = feature;
 			sourceTree = "<group>";
@@ -749,7 +755,6 @@
 				8A4DD0241E6C1401009FCC78 /* loop_closure.cpp in Sources */,
 				8A4DD01A1E6C13FB009FCC78 /* Timestamp.cpp in Sources */,
 				8A4DD0281E6C1442009FCC78 /* projection_facor.cpp in Sources */,
-				8A4DD02C1E6C1442009FCC78 /* loop_closure_factor.cpp in Sources */,
 				8AB374931E6BA39700C1E398 /* initial_aligment.cpp in Sources */,
 				8AB374941E6BA39700C1E398 /* inital_sfm.cpp in Sources */,
 				8AE0E4651E7E5C7B0082912B /* CameraUtils.m in Sources */,
@@ -789,6 +794,7 @@
 				C25459051DBB89170011DF1C /* marginalization_factor.cpp in Sources */,
 				C22203A11E670F2000B48629 /* FeatureVector.cpp in Sources */,
 				C222039F1E670F2000B48629 /* BowVector.cpp in Sources */,
+				C24B640F1F02A35000C42D53 /* perspective_factor.cpp in Sources */,
 				C22203AE1E67124100B48629 /* loop_closure.cpp in Sources */,
 				C25458F81DBB28E20011DF1C /* projection_facor.cpp in Sources */,
 				C22203A41E670F2000B48629 /* QueryResults.cpp in Sources */,
@@ -800,8 +806,8 @@
 				C222033F1E66E0FA00B48629 /* Timestamp.cpp in Sources */,
 				C2442F921EBE137600008A26 /* triangle.cpp in Sources */,
 				C2626C351E10F202008D517E /* inital_sfm.cpp in Sources */,
+				C24B64121F02A3AE00C42D53 /* vins_pnp.cpp in Sources */,
 				C2B537411DB6491D00E235BC /* main.m in Sources */,
-				C22203B81E68161D00B48629 /* loop_closure_factor.cpp in Sources */,
 				C2442F7D1EB8D61800008A26 /* keyfame_database.cpp in Sources */,
 				C22203651E66E1B100B48629 /* BRIEF.cpp in Sources */,
 				C22203461E66E0FA00B48629 /* Random.cpp in Sources */,
