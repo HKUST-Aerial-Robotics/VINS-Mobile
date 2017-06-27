@@ -1,6 +1,8 @@
 # VINS-Mobile
 ## Monocular Visual-Inertial State Estimator on Mobile Phones
 
+**27 Jun 2017**: We upgrade the pose outputs and AR rendering to 30 Hz by motion-only 3D tracking in front-end and improve the loop-closure procedure(See our [technical report](https://github.com/HKUST-Aerial-Robotics/VINS-Mono/blob/master/support_files/paper/tro_technical_report.pdf) for detail).
+
 **22 May 2017**:  **VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator** is released. It is the **Linux** version and is fully integrated with **ROS**. Available at: [link](https://github.com/HKUST-Aerial-Robotics/VINS-Mono)
 
 
