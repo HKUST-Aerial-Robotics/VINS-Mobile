@@ -13,7 +13,7 @@ VINS-Mobile is a real-time monocular visual-inertial state estimator developed b
 **Videos:** https://youtu.be/0mTXnIfFisI https://youtu.be/CI01qbPWlYY ([Video1](http://www.bilibili.com/video/av10813373/) [Video2](http://www.bilibili.com/video/av10813030/) for mainland China friends)
 
 **Related Papers:**
-* [**Monocular Visual-Inertial State Estimation for Mobile Augmented Reality**](http://www.ece.ust.hk/~eeshaojie/ismar2017peiliang.pdf), *P.Li et al (ISMAR 2017, conditionally accepted)*
+* [**Monocular Visual-Inertial State Estimation for Mobile Augmented Reality**](http://www.ece.ust.hk/~eeshaojie/ismar2017peiliang.pdf), *P.Li et al (ISMAR 2017, accepted)*
 * [**Robust Initialization of Monocular Visual-Inertial Estimation on Aerial Robots**](http://www.ece.ust.hk/~eeshaojie/iros2017tong.pdf), *T.Qin et al (IROS 2017, accepted)*
 * [**Monocular Visual-Inertial State Estimation With Online Initialization and Camera-IMU Extrinsic Calibration**](http://ieeexplore.ieee.org/document/7463059/), *Z.Yang et al (T-ASE 2017)*
 
