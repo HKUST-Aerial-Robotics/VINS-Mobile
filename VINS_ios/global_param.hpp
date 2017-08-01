@@ -9,10 +9,6 @@
 #ifndef global_param_h
 #define global_param_h
 
-// Set true:  30 HZ pose output and AR rendering in front-end (very low latency)
-// Set false: 10 HZ pose output and AR rendering in back-end
-#define USE_PNP true
-
 enum DeviceType
 {
     iPhone7P,
@@ -41,7 +37,7 @@ enum DeviceType
 #define NUM_OF_F 1000
 #define NUM_OF_CAM 1
 #define DEBUG_MODE false
-#define C_PI 3.1414926
+#define C_PI 3.1415926
 
 #define GRAVITY ((double)9.805)
 #define ACC_N ((double)0.5)  //0.02

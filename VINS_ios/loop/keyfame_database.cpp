@@ -47,24 +47,27 @@ void KeyFrameDatabase::resample(vector<int> &erase_index)
     if ((int)keyFrameList.size() < max_frame_num)
         return;
     
-    double min_dis = total_length / (max_frame_num * 0.7);
-    
+    double min_dis = total_length / (0.8 * max_frame_num);
     list<KeyFrame*>::iterator it = keyFrameList.begin();
     Vector3d last_P = Vector3d(0, 0, 0);
+    double dis = 0;
     for (; it != keyFrameList.end(); )
     {
         Vector3d tmp_t;
         Matrix3d tmp_r;
         (*it)->getPose(tmp_t, tmp_r);
-        double dis = (tmp_t - last_P).norm();
-        if(dis > min_dis || (*it)->has_loop || (*it)->is_looped /*|| !(*it)->check_loop*/)
+        dis += (tmp_t - last_P).norm();
+        if(it == keyFrameList.begin() || dis > min_dis || (*it)->has_loop || (*it)->is_looped)
         {
+            dis = 0;
             last_P = tmp_t;
             it++;
         }
         else
         {
+            last_P = tmp_t;
             erase_index.push_back((*it)->global_index);
+            delete (*it);
             it = keyFrameList.erase(it);
         }
     }
@@ -149,6 +152,7 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
     double t_array[max_length][3];
     Quaterniond q_array[max_length];
     double euler_array[max_length][3];
+    vector<bool> need_resample;
     
     ceres::Problem problem;
     ceres::Solver::Options options;
@@ -162,7 +166,37 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
     ceres::LocalParameterization* angle_local_parameterization =
     AngleLocalParameterization::Create();
     
-    list<KeyFrame*>::iterator it;
+    //resample
+    double min_dis = total_length / (1.0 * max_frame_num);
+    list<KeyFrame*>::iterator it = keyFrameList.begin();
+    Vector3d last_P = Vector3d(0, 0, 0);
+    double dis = 0;
+    
+    //resample pose graph, keep the relative pose sparse
+    printf("debug resample");
+    for (; it != keyFrameList.end(); it++)
+    {
+        if ((*it)->global_index < earliest_loop_index)
+            continue;
+        Vector3d tmp_t;
+        Matrix3d tmp_r;
+        (*it)->getPose(tmp_t, tmp_r);
+        dis += (tmp_t - last_P).norm();
+        if((*it)->global_index == earliest_loop_index || dis > min_dis || (*it)->has_loop || (*it)->is_looped || keyFrameList.size() < max_frame_num)
+        {
+            dis = 0;
+            last_P = tmp_t;
+            need_resample.push_back(0);
+            printf("debug %d\n",0);
+        }
+        else
+        {
+            last_P = tmp_t;
+            need_resample.push_back(1);
+            printf("debug %d\n",1);
+        }
+    }
+    
     int i = 0;
     for (it = keyFrameList.begin(); it != keyFrameList.end(); it++)
     {
@@ -193,11 +227,30 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
             problem.SetParameterBlockConstant(t_array[i]);
         }
         
+        if(need_resample[i])
+        {
+            i++;
+            continue;
+        }
+        
+        printf("debug add %dth pose\n", i);
         //add edge
-        for (int j = 1; j < 5; j++)
+        int j = 1, sequence_link_cnt = 0;
+        while(sequence_link_cnt < 5)
         {
             if (i - j >= 0)
             {
+                list<KeyFrame*>::iterator tmp = it;
+                std::advance (tmp, -j);
+                if(need_resample[i-j])
+                {
+                    j++;
+                    continue;
+                }
+                else
+                {
+                    sequence_link_cnt++;
+                }
                 Vector3d euler_conncected = Utility::R2ypr(q_array[i-j].toRotationMatrix());
                 Vector3d relative_t(t_array[i][0] - t_array[i-j][0], t_array[i][1] - t_array[i-j][1], t_array[i][2] - t_array[i-j][2]);
                 relative_t = q_array[i-j].inverse() * relative_t;
@@ -209,8 +262,13 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
                                          euler_array[i],
                                          t_array[i]);
             }
+            else
+            {
+                break;
+            }
+            j++;
         }
-        
+        printf("debug sequence_link_cnt %d\n", sequence_link_cnt);
         //add loop edge
         if((*it)->has_loop)
         {
@@ -245,6 +303,8 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
     seg_index_cur = cur_kf->segment_index;
     seg_index_old = getKeyframe(cur_kf->loop_index)->segment_index;
     cur_seg_index = seg_index_old;
+    Vector3d t_drift_it = Vector3d::Zero();
+    Matrix3d r_drift_it = Matrix3d::Identity();
     for (it = keyFrameList.begin(); it != keyFrameList.end(); it++)
     {
         if ((*it)->global_index < earliest_loop_index)
@@ -253,7 +313,19 @@ void KeyFrameDatabase::optimize4DoFLoopPoseGraph(int cur_index, Eigen::Vector3d 
         tmp_q = Utility::ypr2R(Vector3d(euler_array[i][0], euler_array[i][1], euler_array[i][2]));
         Vector3d tmp_t = Vector3d(t_array[i][0], t_array[i][1], t_array[i][2]);
         Matrix3d tmp_r = tmp_q.toRotationMatrix();
-        (*it)-> updatePose(tmp_t, tmp_r);
+        if(need_resample[i])
+        {
+            (*it)-> updatePose(r_drift_it * tmp_t + t_drift_it, r_drift_it * tmp_r);
+        }
+        else
+        {
+            Vector3d origin_t_it;
+            Matrix3d origin_r_it;
+            (*it)->getOriginPose(origin_t_it, origin_r_it);
+            r_drift_it = tmp_r * origin_r_it.transpose();
+            t_drift_it = tmp_t - r_drift_it * origin_t_it;
+            (*it)-> updatePose(tmp_t, tmp_r);
+        }
         if ((*it)->global_index == cur_index)
             break;
         i++;

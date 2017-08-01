@@ -10,7 +10,7 @@
 
 int FeatureTracker::n_id = 0;
 FeatureTracker::FeatureTracker()
-:mask{ROW, COL, CV_8UC1},update_finished{false},img_cnt{0},current_time{-1.0}
+:mask{ROW, COL, CV_8UC1},update_finished{false},img_cnt{0},current_time{-1.0},use_pnp{false}
 {
     printf("init ok\n");
 }
@@ -151,12 +151,11 @@ bool FeatureTracker::solveVinsPnP(double header, Vector3d &P, Matrix3d &R, bool 
         vins_pnp.processIMU(dt, it.acc, it.gyr);
     }
     printf("image %lf\n", header);
-    vins_pnp.processImage(feature_msg, header);
+    vins_pnp.processImage(feature_msg, header, use_pnp);
     
     P = vins_pnp.Ps[PNP_SIZE - 1];
     R = vins_pnp.Rs[PNP_SIZE - 1];
     Vector3d R_ypr = Utility::R2ypr(R);
-    printf("debug  pnp P: %lf %lf %lf R: %lf %lf %lf %d\n",P.x(), P.y(), P.z(), R_ypr.x(), R_ypr.y(), R_ypr.z(), feature_msg.size());
     return true;
 }
 
@@ -205,9 +204,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_
                 reduceVector(parallax_cnt, status);
             }
             
-            TS(debug_pnp);
             solveVinsPnP(header, P, R, vins_normal);
-            TE(debug_pnp);
             
             if(img_cnt!=0)
             {

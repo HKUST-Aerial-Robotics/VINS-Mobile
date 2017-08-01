@@ -66,8 +66,8 @@ KEYFRAME_DATA vinsData;
 
 /******************************* UI CONFIG *******************************/
 
-// true:  VINS trajectory is the main view, AR image is in left bottom
-// false: AR image is the main view, VINS is in left bottom
+// false:  VINS trajectory is the main view, AR image is in left bottom
+// true: AR image is the main view, VINS is in left bottom
 bool ui_main = false;
 
 bool box_in_AR = false;
@@ -139,6 +139,10 @@ CMMotionManager *motionManager;
 // Segment the trajectory using color when re-initialize
 int segmentation_index = 0;
 
+// Set true:  30 HZ pose output and AR rendering in front-end (very low latency)
+// Set false: 10 HZ pose output and AR rendering in back-end
+bool USE_PNP = false;
+
 // Lock the solved VINS data feedback to featuretracker
 std::mutex m_depth_feedback;
 
@@ -179,10 +183,6 @@ bool voc_init_ok = false;
 
 // Indicate the loop frame index
 int old_index = -1;
-
-
-// Store the indexs of the keyframe which need to be erased
-vector<int> erase_index;
 
 // Translation drift
 Eigen::Vector3d loop_correct_t = Eigen::Vector3d(0, 0, 0);
@@ -333,7 +333,6 @@ bool imageCacheEnabled = cameraMode && !USE_PNP;
         });
     }
     
-    
     /*********************************************Start VINS*******************************************/
     if(versionCheck && deviceCheck)
     {
@@ -442,23 +441,22 @@ Matrix3d pnp_R;
         clahe->apply(gray, img_equa);
         //img_equa = gray;
         TS(time_feature);
-        if(USE_PNP)
-        {
-            m_depth_feedback.lock();
-            featuretracker.solved_features = solved_features;
-            featuretracker.solved_vins = solved_vins;
-            m_depth_feedback.unlock();
-            
-            m_imu_feedback.lock();
-            featuretracker.imu_msgs = getImuMeasurements(img_msg->header);
-            m_imu_feedback.unlock();
-        }
+        
+        m_depth_feedback.lock();
+        featuretracker.solved_features = solved_features;
+        featuretracker.solved_vins = solved_vins;
+        m_depth_feedback.unlock();
+        
+        m_imu_feedback.lock();
+        featuretracker.imu_msgs = getImuMeasurements(img_msg->header);
+        m_imu_feedback.unlock();
+        
         vector<Point2f> good_pts;
         vector<double> track_len;
         bool vins_normal = (vins.solver_flag == VINS::NON_LINEAR);
+        featuretracker.use_pnp = USE_PNP;
         featuretracker.readImage(img_equa, img_with_feature,frame_cnt, good_pts, track_len, img_msg->header, pnp_P, pnp_R, vins_normal);
         TE(time_feature);
-        
         //cvtColor(img_equa, img_equa, CV_GRAY2BGR);
         for (int i = 0; i < good_pts.size(); i++)
         {
@@ -683,7 +681,6 @@ void send_imu(const ImuConstPtr &imu_msg)
     vins.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
 }
 
-
 /*
  VINS thread: this thread tightly fuses the visual measurements and imu data and solves pose, velocity, IMU bias, 3D feature for all frame in WINNDOW
  If the newest frame is keyframe, then push it into keyframe database
@@ -731,7 +728,7 @@ bool start_global_optimization = false;
         NSLog(@"vins delay %lf", time_now - time_vins);
         
         //update feature position for front-end
-        if(vins.solver_flag == vins.NON_LINEAR && USE_PNP)
+        if(vins.solver_flag == vins.NON_LINEAR)
         {
             m_depth_feedback.lock();
             solved_vins.header = vins.Headers[WINDOW_SIZE - 1];
@@ -741,8 +738,6 @@ bool start_global_optimization = false;
             solved_vins.R = vins.correct_Rs[WINDOW_SIZE-1].cast<double>();
             solved_vins.V = vins.Vs[WINDOW_SIZE - 1];
             Vector3d R_ypr = Utility::R2ypr(solved_vins.R);
-            //printf("debug vins pnp P: %lf %lf %lf R: %lf %lf %lf------------------\n",solved_vins.Ba.x(), solved_vins.Ba.y(), solved_vins.Ba.z(), solved_vins.Bg.x(), solved_vins.Bg.y(), solved_vins.Bg.z());
-            printf("debug vins pnp headers %lf %d P: %lf %lf %lf R: %lf %lf %lf------------------\n",solved_vins.header, 1, solved_vins.P.x(), solved_vins.P.y(), solved_vins.P.z(), R_ypr.x(), R_ypr.y(), R_ypr.z());
             solved_features.clear();
             for (auto &it_per_id : vins.f_manager.feature)
             {
@@ -822,8 +817,6 @@ bool start_global_optimization = false;
                          */
                         keyframe->buildKeyFrameFeatures(vins);
                         keyframe_database.add(keyframe);
-                        erase_index.clear();
-                        keyframe_database.resample(erase_index);
                         
                         global_frame_cnt++;
                     }
@@ -885,7 +878,6 @@ bool start_global_optimization = false;
         
         //finish solve one frame
         [self performSelectorOnMainThread:@selector(showInputView) withObject:nil waitUntilDone:YES];
-        
     }
 }
 
@@ -914,8 +906,6 @@ bool start_global_optimization = false;
             [NSThread sleepForTimeInterval:0.5];
             continue;
         }
-        if(!erase_index.empty() && loop_closure != NULL)
-            loop_closure->eraseIndex(erase_index);
         
         bool loop_succ = false;
         if (loop_check_cnt < global_frame_cnt)
@@ -944,7 +934,7 @@ bool start_global_optimization = false;
                 KeyFrame* old_kf = keyframe_database.getKeyframe(old_index);
                 if (old_kf == NULL)
                 {
-                    printf("NO such frame in keyframe_database\n");
+                    printf("NO such %dth frame in keyframe_database\n", old_index);
                     assert(false);
                 }
                 printf("loop succ with %drd image\n", old_index);
@@ -972,7 +962,6 @@ bool start_global_optimization = false;
                     retrive_data.measurements = measurements_old_norm;
                     retrive_data.features_ids = features_id;
                     vins.retrive_pose_data = (retrive_data);
-                    printf("loop push\n");
                     
                     //cout << "old pose " << T_w_i_old.transpose() << endl;
                     //cout << "refinded pose " << T_w_i_refine.transpose() << endl;
@@ -1165,7 +1154,6 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
          lateast_imu_time = imu_msg->header;
          
          //img_msg callback
-         if(USE_PNP)
          {
              IMU_MSG_LOCAL imu_msg_local;
              imu_msg_local.header = imu_msg->header;
@@ -1302,15 +1290,21 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
     {
         case 0:
             self.switchUIAREnabled = YES;
+            
             printf("show AR\n");
             ui_main = true;
             box_in_AR= true;
+            USE_PNP = true;
+            imageCacheEnabled = cameraMode && !USE_PNP;
             break;
         case 1:
             self.switchUIAREnabled = NO;
+            
             ui_main = false;
             if (box_in_AR)
                 box_in_trajectory = true;
+            USE_PNP = false;
+            imageCacheEnabled = cameraMode && !USE_PNP;
             printf("show VINS\n");
             break;
         default:
@@ -1320,6 +1314,7 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
 
 - (IBAction)fovSliderValueChanged:(id)sender {
     self.fovLabel.text = [[NSNumber numberWithFloat:self.fovSlider.value] stringValue];
+    
 }
 
 - (void) handlePan:(UIPanGestureRecognizer*) recognizer
@@ -1818,4 +1813,3 @@ bool iosVersion()
     }
 }
 @end
-

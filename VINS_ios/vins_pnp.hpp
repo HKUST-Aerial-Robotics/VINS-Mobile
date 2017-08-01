@@ -85,7 +85,7 @@ public:
     void setInit(VINS_RESULT vins_result);
     void slideWindow();
     void updateFeatures(vector<IMG_MSG_LOCAL> &feature_msg);
-    void processImage(vector<IMG_MSG_LOCAL> &feature_msg, double header);
+    void processImage(vector<IMG_MSG_LOCAL> &feature_msg, double header, bool use_pnp);
     void processIMU(double t, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
     void changeState();
 };

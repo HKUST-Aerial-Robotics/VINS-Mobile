@@ -241,7 +241,7 @@ void vinsPnP::processIMU(double dt, const Vector3d &linear_acceleration, const V
     gyr_0 = angular_velocity;
 }
 
-void vinsPnP::processImage(vector<IMG_MSG_LOCAL> &feature_msg, double header)
+void vinsPnP::processImage(vector<IMG_MSG_LOCAL> &feature_msg, double header, bool use_pnp)
 {
     int track_num;
     printf("pnp %d adding feature points %lu\n", frame_count, feature_msg.size());
@@ -255,8 +255,8 @@ void vinsPnP::processImage(vector<IMG_MSG_LOCAL> &feature_msg, double header)
         frame_count++;
         return;
     }
-    
-    solve_ceres();
+    if(use_pnp)
+        solve_ceres();
     
     slideWindow();
 }
@@ -380,4 +380,3 @@ void vinsPnP::slideWindow()
         
     }
 }
-

@@ -77,6 +77,7 @@ public:
     int img_cnt;
     double current_time;
     vinsPnP vins_pnp;
+    bool use_pnp;
     
     /*
      interface
