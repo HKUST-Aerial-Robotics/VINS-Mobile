@@ -390,8 +390,9 @@ void FeatureManager::removeFront(int frame_count)
         {
             int j = WINDOW_SIZE - 1 - it->start_frame;
             //it->feature_per_frame.erase(it->feature_per_frame.begin() + j);
-            if(it->feature_per_frame.size() == j+2)
-                it->feature_per_frame.erase(it->feature_per_frame.begin() + j);
+            if (it->endFrame() < frame_count - 1)
+                continue;
+            it->feature_per_frame.erase(it->feature_per_frame.begin() + j);
             if (it->feature_per_frame.size() == 0)
             {
                 feature.erase(it);
