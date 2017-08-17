@@ -45,7 +45,7 @@ $ brew install boost
 
 We use [ceres solver](http://ceres-solver.org/) for non-linear optimization and [DBow](https://github.com/dorian3d/DBoW2) for loop detection.
 
-Thanks the contributions of [Yang Liu](https://github.com/wandermyz) and [Botao Hu](http://amber.botao.hu/) from [Amber Garage](https://ambergarage.com/).
+Thanks the contributions of [Botao Hu](http://amber.botao.hu/) (from [Amber Garage](https://ambergarage.com/)) and [Yang Liu](https://github.com/wandermyz).
 
 ## 3. Licence
 
