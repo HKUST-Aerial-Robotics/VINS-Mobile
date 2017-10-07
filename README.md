@@ -51,6 +51,6 @@ Thanks the contributions of [Botao Hu](http://amber.botao.hu/) (from [Amber Gara
 
 The source code is released under [GPLv3](http://www.gnu.org/licenses/) licence.
 
-We are still working for improving the code readability. Welcome to contribute to VINS-Mobile or ask any issues via Github or contacting Peiliang LI <pliap@connect.ust.hk> or Tong QIN <tong.qin@connect.ust.hk>.
+We are still working for improving the code readability. Welcome to contribute to VINS-Mobile or ask any issues via Github or contacting Peiliang LI <pliapATconnect.ust.hk> or Tong QIN <tong.qinATconnect.ust.hk>.
 
-For commercial inqueries, please contact Shaojie SHEN <eeshaojie@ust.hk>
+For commercial inqueries, please contact Shaojie SHEN <eeshaojieATust.hk>
