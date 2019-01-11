@@ -8,7 +8,7 @@
 
 VINS-Mobile is a real-time monocular visual-inertial state estimator developed by members of the [HKUST Aerial Robotics Group](http://uav.ust.hk/). It runs on compatible iOS devices, and provides localization services for augmented reality (AR) applications. It is also tested for state estimation and feedback control for autonomous drones. VINS-Mobile uses sliding window optimization-based formulation for providing high-accuracy visual-inertial odometry with automatic initialization and failure recovery. The accumulated odometry errors are corrected in real-time using global pose graph SLAM. An AR demonstration is provided to showcase its capability.
 
-**Authors:** [Peiliang LI](https://github.com/PeiliangLi), [Tong QIN](http://www.qintonguav.com), [Zhenfei YANG](https://github.com/dvorak0), Kejie QIU, and [Shaojie SHEN](http://www.ece.ust.hk/ece.php/profile/facultydetail/eeshaojie) from the [HKUST Aerial Robotics Group](http://uav.ust.hk/)
+**Authors:** [Peiliang LI](https://peiliangli.github.io/), [Tong QIN](http://www.qintonguav.com), [Zhenfei YANG](https://github.com/dvorak0), Kejie QIU, and [Shaojie SHEN](http://www.ece.ust.hk/ece.php/profile/facultydetail/eeshaojie) from the [HKUST Aerial Robotics Group](http://uav.ust.hk/)
 
 **Videos:** https://youtu.be/0mTXnIfFisI https://youtu.be/CI01qbPWlYY ([Video1](http://www.bilibili.com/video/av10813373/) [Video2](http://www.bilibili.com/video/av10813030/) for mainland China friends)
 
