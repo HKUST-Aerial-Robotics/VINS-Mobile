@@ -18,7 +18,6 @@
 #include "global_param.hpp"
 #include "delaunay.h"
 
-using namespace cv;
 using namespace Eigen;
 using namespace std;
 
@@ -106,13 +105,13 @@ public:
     //for optical flow EKF
     cv::Mat pre_image;
     cv::Mat cur_image;
-    vector<Point2f> pre_pts;
-    vector<Point2f> cur_pts;
-    vector<Point2f> n_pts;
-    Point2f flow;  //velocity of the pixel
+    vector<cv::Point2f> pre_pts;
+    vector<cv::Point2f> cur_pts;
+    vector<cv::Point2f> n_pts;
+    cv::Point2f flow;  //velocity of the pixel
     bool KF_init;
     
-    vector<Scalar> trajectory_color;
+    vector<cv::Scalar> trajectory_color;
     vector<int> indexs;
     bool change_color;
     //4 sizes

@@ -8,6 +8,8 @@
 
 #include "feature_tracker.hpp"
 
+using namespace cv;
+
 int FeatureTracker::n_id = 0;
 FeatureTracker::FeatureTracker()
 :mask{ROW, COL, CV_8UC1},update_finished{false},img_cnt{0},current_time{-1.0},use_pnp{false}
@@ -159,7 +161,7 @@ bool FeatureTracker::solveVinsPnP(double header, Vector3d &P, Matrix3d &R, bool 
     return true;
 }
 
-void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_cnt, vector<Point2f> &good_pts, vector<double> &track_len, double header, Vector3d &P, Matrix3d &R, bool vins_normal)
+void FeatureTracker::readImage(const cv::Mat &_img, cv::Mat &result, int _frame_cnt, vector<cv::Point2f> &good_pts, vector<double> &track_len, double header, Vector3d &P, Matrix3d &R, bool vins_normal)
 {
     
     result = _img;

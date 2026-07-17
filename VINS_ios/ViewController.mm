@@ -10,6 +10,8 @@
 #import "utility.hpp"
 #import "CameraUtils.h"
 
+using namespace cv;
+
 @interface ViewController ()
 @property (weak, nonatomic) IBOutlet UILabel *X_label;
 @property (weak, nonatomic) IBOutlet UILabel *Y_label;
@@ -365,7 +367,9 @@ Matrix3d pnp_R;
 {
     if(isCapturing == YES)
     {
-        //NSLog(@"image processing");
+        NSLog(@"NSLog image processing");
+        cout << "cout image processing " << image.rows << "x" << image.cols << ", dims: " << image.dims
+            <<", type: " << image.type() << ", depth: " << image.depth() << ", channels: " << image.channels();
         float lowPart = image.at<float>(0,0);  //modify opencv library, timestamp was stored at index 0,0
         float highPart = image.at<float>(0,1);
         //image.at<float>(0,0) = image.at<float>(1,0);
@@ -1793,9 +1797,15 @@ DeviceType deviceName()
         printf("Device iPad pro 12.9\n");
         device_type = iPadPro129;
     }
+    else if(([device compare:@"iPad16,1"] == NSOrderedSame)||
+            ([device compare:@"iPad16,2"] == NSOrderedSame))
+    {
+        printf("Device iPad Mini 7th gen\n");
+        device_type = iPadMini7;
+    }
     else
     {
-        printf("Device undefine\n");
+        printf("Device undefine: s\n", systemInfo.machine);
         device_type = unDefine;
     }
     return device_type;

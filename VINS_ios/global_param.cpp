@@ -122,10 +122,28 @@ bool setGlobalParam(DeviceType device)
             TIC_Z = 0.1;
             return true;
             break;
+        case iPadMini7:
+            printf("Device ipadmini7 param\n");
+            FOCUS_LENGTH_X = 547.234;
+            FOCUS_LENGTH_Y = 547.464;
+            PX = 241.549;
+            PY = 317.957;
+            
+            SOLVER_TIME = 0.06;
+            FREQ = 3;
+            
+            //extrinsic param
+            TIC_X = 0.0;
+            TIC_Y = 0.092;
+            TIC_Z = 0.1;
+            return true;
+            break;
         case unDefine:
+            printf("Device unDefine param\n");
             return false;
             break;
         default:
+            printf("Device %d param\n", device);
             return false;
             break;
     }
