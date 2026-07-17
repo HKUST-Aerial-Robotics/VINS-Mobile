@@ -624,13 +624,17 @@ void UIImageToMatMJC(const UIImage* image,
             cv::Mat tmp2;
             if(vins.solver_flag == VINS::NON_LINEAR && start_show)
             {
+                cv::Mat tmp;
                 vins.drawresult.startInit = true;
                 vins.drawresult.drawAR(vins.imageAI, vins.correct_point_cloud, lateast_P, lateast_R);
                 
+                cv::cvtColor(image, tmp, CV_BGRA2RGB);
                 cv::Mat mask;
                 cv::Mat imageAI = vins.imageAI;
                 if(!imageAI.empty())
                     cv::cvtColor(imageAI, mask, CV_RGB2GRAY);
+                imageAI.copyTo(tmp,mask);
+                cv::cvtColor(tmp, image, CV_RGB2BGRA);
             }
             if(DEBUG_MODE)
             {
@@ -641,7 +645,7 @@ void UIImageToMatMJC(const UIImage* image,
             {
                 cout << "FLIP3" << endl;
                 cv::flip(image,tmp2,-1);
-                image = tmp2;
+                tmp2.copyTo(image);
                 if(vins.solver_flag != VINS::NON_LINEAR || !start_show){
 //                    cv::cvtColor(image, image, CV_RGBA2BGR);
                 }
@@ -672,9 +676,10 @@ void UIImageToMatMJC(const UIImage* image,
             
             cout << "FLIP5" << endl;
             cv::flip(image,tmp2,1);
-            if (isNeedRotation)
+            if (isNeedRotation){
                 cout << "TRANSPOSE2" << endl;
-                image = tmp2.t();
+                cv::transpose(tmp2, image);
+            }
         }
         
         TE(visualize);
