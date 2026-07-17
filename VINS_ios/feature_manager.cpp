@@ -62,35 +62,36 @@ double FeatureManager::compensatedParallax1(FeaturePerId &f_per_id)
     return ans;
 }
 
+
+/**
+ * 对于给定id的特征点
+ * 计算第2最新帧和第3最新帧之间该特征点的视差（当前帧frame_count是第1最新帧）
+ * （需要使用IMU数据补偿因旋转造成的视差）
+ */
 double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int frame_count)
 {
+    // check the second last frame is keyframe or not
+    // parallax between second last frame and third last frame
+    // 第3最新帧
     const FeaturePerFrame &frame_i = it_per_id.feature_per_frame[frame_count - 2 - it_per_id.start_frame];
+    // 第2最新帧
     const FeaturePerFrame &frame_j = it_per_id.feature_per_frame[frame_count - 1 - it_per_id.start_frame];
     
-    int r_i = frame_count - 2;
-    int r_j = frame_count - 1;
-    
-    double ans = 0;
+    Vector3d p_i = frame_i.point;
     Vector3d p_j = frame_j.point;
     
-    double u_j = p_j(0);
-    double v_j = p_j(1);
-    
-    Vector3d p_i = frame_i.point;
-    Vector3d p_i_comp = p_i;
-    //p_i_comp = ric.transpose() * Rs[r_j].transpose() * Rs[r_i] * ric * p_i;
-    
     double dep_i = p_i(2);
-    double u_i = p_i(0) / dep_i;
-    double v_i = p_i(1) / dep_i;
+    double u_i = p_i(0) / dep_i;  // 像素平面坐标
+    double v_i = p_i(1) / dep_i;  // 像素平面坐标
     
-    double du = u_i - u_j, dv = v_i - v_j;
-    double dep_i_comp = p_i_comp(2);
-    double u_i_comp = p_i_comp(0) / dep_i_comp;
-    double v_i_comp = p_i_comp(1) / dep_i_comp;
-    double du_comp = u_i_comp - u_j, dv_comp = v_i_comp - v_j;
+    double dep_j = p_j(2);
+    double u_j = p_j(0) / dep_j;  // 像素平面坐标
+    double v_j = p_j(1) / dep_j;  // 像素平面坐标
     
-    ans = max(ans, sqrt(min(du * du + dv * dv, du_comp * du_comp + dv_comp * dv_comp)));
+    double du = u_i - u_j;
+    double dv = v_i - v_j;
+    
+    double ans = sqrt(du * du + dv * dv);  // 视差补偿值
     return ans;
 }
 
