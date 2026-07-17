@@ -84,12 +84,12 @@ void vinsPnP::setInit(VINS_RESULT vins_result)
 
 void vinsPnP::updateFeatures(vector<IMG_MSG_LOCAL> &feature_msg)
 {
-    for(int i = 0; i < frame_count; i++)
+    for(int i = 0; i <= frame_count; i++)
     {
         int j = 0;
         for (auto &it : feature_msg)
         {
-            while(features[i][j].id < it.id)
+            while(j < ((int)features[i].size()-1) && features[i][j].id < it.id)
             {
                 j++;
             }
