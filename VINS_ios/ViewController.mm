@@ -76,9 +76,6 @@ bool box_in_AR = false;
 
 bool box_in_trajectory = false;
 
-// Debug aid: keep camera preview visible even before VINS initialization finishes.
-bool force_camera_preview = false;
-
 // If initialized finished, start show is true
 bool start_show = false;
 
@@ -277,13 +274,6 @@ bool imageCacheEnabled = cameraMode && !USE_PNP;
     indicator.color = [UIColor darkGrayColor];
     [indicator startAnimating];
     [self.view addSubview:indicator];
-    if (force_camera_preview)
-    {
-        [_feature_label2 setHidden:YES];
-        [_feature_label3 setHidden:YES];
-        [indicator setHidden:YES];
-        [featureImageView setHidden:YES];
-    }
     
     /****************************************Init all the thread****************************************/
     _condition=[[NSCondition alloc] init];
@@ -372,7 +362,6 @@ Matrix3f lateast_R;
 cv::Mat pnp_image;
 Vector3d pnp_P;
 Matrix3d pnp_R;
-int counter = 0;
 
 void UIImageToMatMJC(const UIImage* image,
                              cv::Mat& m, bool alphaExist = false);
@@ -459,12 +448,8 @@ void UIImageToMatMJC(const UIImage* image,
 
 - (void)processImage:(cv::Mat&)image
 {
-//    cv::Mat backup = image.clone();
-//    cv::flip(image,image,-1);
-    
     if(isCapturing == YES)
     {
-        cout << "(isCapturing == YES) if" << endl;
         //NSLog(@"image processing");
         float lowPart = image.at<float>(0,0);  //modify opencv library, timestamp was stored at index 0,0
         float highPart = image.at<float>(0,1);
@@ -480,12 +465,9 @@ void UIImageToMatMJC(const UIImage* image,
         double* time_now_decode = (double*)Group;
         double time_stamp = *time_now_decode;
         
-        cout << counter << ": " << time_stamp << ", " << image.rows << "x" << image.cols << endl;
-        counter++;
-        
         if(lateast_imu_time <= 0)
         {
-            cout << "(lateast_imu_time <= 0) if" << endl;
+            //cv::cvtColor(image, image, CV_BGRA2RGB);
             cv::flip(image,image,-1);
             return;
         }
@@ -497,7 +479,6 @@ void UIImageToMatMJC(const UIImage* image,
         cv::Mat input_frame;
         if(start_playback)
         {
-            cout << "start_playback if" << endl;
             //TS(readImg);
             bool still_play;
             still_play = [self readImageTime:imageDataReadIndex];
@@ -518,13 +499,11 @@ void UIImageToMatMJC(const UIImage* image,
         }
         else
         {
-            cout << "start_playback else" << endl;
             input_frame = image;
         }
         
         if(start_record)
         {
-            cout << "start_record if" << endl;
             imgData.header = img_msg->header;
             imgData.image = MatToUIImageMJC(image);
             imgDataBuf.push(imgData);
@@ -532,11 +511,8 @@ void UIImageToMatMJC(const UIImage* image,
         }
         else
         {
-            cout << "start_record else" << endl;
-            if(!imgDataBuf.empty()){
-                cout << "!imgDataBuf.empty() if" << endl;
+            if(!imgDataBuf.empty())
                 return;
-            }
         }
         
         prevTime = mach_absolute_time();
@@ -575,8 +551,6 @@ void UIImageToMatMJC(const UIImage* image,
         //image msg buf
         if(featuretracker.img_cnt==0)
         {
-            cout << "featuretracker.img_cnt==0 if" << endl;
-            
             img_msg->point_clouds = featuretracker.image_msg;
             //img_msg callback
             m_buf.lock();
@@ -586,25 +560,13 @@ void UIImageToMatMJC(const UIImage* image,
             con.notify_one();
             if(imageCacheEnabled)
             {
-                cout << "imageCacheEnabled 1 if" << endl;
-
                 image_data_cache.header = img_msg->header;
                 image_data_cache.image = MatToUIImageMJC(image);
-                CGFloat heightInPoints = image_data_cache.image.size.height;
-                CGFloat heightInPixels = heightInPoints * image_data_cache.image.scale;
-
-                CGFloat widthInPoints = image_data_cache.image.size.width;
-                CGFloat widthInPixels = widthInPoints * image_data_cache.image.scale;
-                cout << "    MJC2 " << image.rows << "x" << image.cols << " " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << ", " << widthInPoints << "x" << heightInPoints << ", " << widthInPixels << "x" << heightInPixels << ", header: " << image_data_cache.header << endl;
-                cout << "kCGImageAlphaLast: " << kCGImageAlphaLast << ", kCGImageAlphaNone: " << kCGImageAlphaNone << ", kCGBitmapByteOrderDefault:" << kCGBitmapByteOrderDefault <<
-                ", kCGImageAlphaNoneSkipLast: " << kCGImageAlphaNoneSkipLast << endl;
                 image_pool.push(image_data_cache);
             }
             
             if(LOOP_CLOSURE)
             {
-                cout << "LOOP_CLOSURE if" << endl;
-                
                 m_image_buf_loop.lock();
                 cv::Mat loop_image = gray.clone();
                 image_buf_loop.push(make_pair(loop_image, img_msg->header));
@@ -622,12 +584,9 @@ void UIImageToMatMJC(const UIImage* image,
         TS(visualize);
         if(imageCacheEnabled)
         {
-            cout << "imageCacheEnabled 2 if" << endl;
             //use aligned vins and image
             if(!vins_pool.empty() && !image_pool.empty())
             {
-                cout << "(!vins_pool.empty() && !image_pool.empty()) if" << endl;
-                
                 while(vins_pool.size() > 1)
                 {
                     vins_pool.pop();
@@ -638,70 +597,53 @@ void UIImageToMatMJC(const UIImage* image,
                 }
                 if(!vins_pool.empty() && !image_pool.empty())
                 {
-                    cout << "(!vins_pool.empty() && !image_pool.empty()) if" << endl;
-                    
                     lateast_image = image_pool.front().image;
                     lateast_P = vins_pool.front().P;
                     lateast_R = vins_pool.front().R;
-                    //cout << "lateast_image "
                     UIImageToMatMJC(lateast_image, image);
                 }
             }
             else if(!image_pool.empty())
             {
-                cout << "(!vins_pool.empty() && !image_pool.empty()) else" << endl;
-                cout << "!image_pool.empty() if" << endl;
-                if(image_pool.size() > 10){
-                    cout << "image_pool.size() > 10 if" << endl;
+                if(image_pool.size() > 10)
                     image_pool.pop();
-                }
             }
         }
         if(USE_PNP)
         {
-            cout << "USE_PNP if" << endl;
             lateast_P = pnp_P.cast<float>();
             lateast_R = pnp_R.cast<float>();
         }
         if(ui_main || start_show == false || vins.solver_flag != VINS::NON_LINEAR)  //show image and AR
         {
-            cout << "(ui_main || start_show == false || vins.solver_flag != VINS::NON_LINEAR) if" << endl;
             cv::Mat tmp2;
             if(vins.solver_flag == VINS::NON_LINEAR && start_show)
             {
-                cout << "(vins.solver_flag == VINS::NON_LINEAR && start_show) if" << endl;
                 vins.drawresult.startInit = true;
                 vins.drawresult.drawAR(vins.imageAI, vins.correct_point_cloud, lateast_P, lateast_R);
                 
                 cv::Mat mask;
                 cv::Mat imageAI = vins.imageAI;
-                if(!imageAI.empty()){
-                    cout << "!imageAI.empty() if" << endl;
+                if(!imageAI.empty())
                     cv::cvtColor(imageAI, mask, CV_RGB2GRAY);
-                }
             }
             if(DEBUG_MODE)
             {
-                cout << "DEBUG_MODE if" << endl;
                 cv::flip(lateast_equa, image, -1);
             }
             else
             {
-                cout << "DEBUG_MODE else" << endl;
                 cv::flip(image,tmp2,-1);
                 image = tmp2;
                 if(vins.solver_flag != VINS::NON_LINEAR || !start_show){
-                    cout << "(vins.solver_flag != VINS::NON_LINEAR || !start_show) if" << endl;
 //                    cv::cvtColor(image, image, CV_RGBA2BGR);
                 }
-            }     
+            }
         }
         else //show VINS
         {
-            cout << "(ui_main || start_show == false || vins.solver_flag != VINS::NON_LINEAR) else" << endl;
             if(vins.solver_flag == VINS::NON_LINEAR)
             {
-                cout << "(vins.solver_flag == VINS::NON_LINEAR) if" << endl;
                 vins.drawresult.pose.clear();
                 vins.drawresult.pose = keyframe_database.refine_path;
                 vins.drawresult.segment_indexs = keyframe_database.segment_indexs;
@@ -710,7 +652,6 @@ void UIImageToMatMJC(const UIImage* image,
             cv::Mat tmp2 = vins.image_show;
             
             cv::Mat down_origin_image;
-            cout << "MJC " << image.rows << "x" << image.cols << endl;
             cv::resize(image.t(), down_origin_image, cv::Size(200, 150));
             cv::cvtColor(down_origin_image, down_origin_image, CV_BGRA2RGB);
             cv::flip(down_origin_image,down_origin_image,0);
@@ -721,26 +662,18 @@ void UIImageToMatMJC(const UIImage* image,
             down_origin_image.copyTo(imageROI, mask);
             
             cv::flip(image,tmp2,1);
-            if (isNeedRotation){
-                cout << "(isNeedRotation) if" << endl;
+            if (isNeedRotation)
                 image = tmp2.t();
-            }
         }
         
         TE(visualize);
     } else {
-        cout << "(isCapturing == YES) else" << endl;
         // Not capturing, means not started yet
         cv::flip(image,image,-1);
         //BOOL isNeedRotation = image.size() != frameSize;
         //if (isNeedRotation)
         //    image = image.t();
     }
-
-    // CvVideoCamera preview path uses CoreGraphics and expects 32bpp when byte-order flags are set.
-    // cout << "MJC1 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
-    
-//    backup.copyTo(image);
 }
 
 
@@ -1363,13 +1296,6 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
         stringView = [NSString stringWithFormat:@"Initializing: %d%%", vins.initProgress];
         [_feature_label2 setText:stringView];
         
-        if (!force_camera_preview)
-        {
-            [_feature_label2 setHidden:NO];
-            [_feature_label3 setHidden:NO];
-            [indicator setHidden:NO];
-            [featureImageView setHidden:NO];
-        }
     }
     else
     {
