@@ -372,11 +372,99 @@ Matrix3f lateast_R;
 cv::Mat pnp_image;
 Vector3d pnp_P;
 Matrix3d pnp_R;
+int counter = 0;
+
+void UIImageToMatMJC(const UIImage* image,
+                             cv::Mat& m, bool alphaExist = false);
+
+UIImage* MatToUIImageMJC(const cv::Mat& image) {
+
+    NSData *data = [NSData dataWithBytes:image.data
+                                  length:image.step.p[0] * image.rows];
+
+    CGColorSpaceRef colorSpace;
+
+    if (image.elemSize() == 1) {
+        colorSpace = CGColorSpaceCreateDeviceGray();
+    } else {
+        colorSpace = CGColorSpaceCreateDeviceRGB();
+    }
+
+    CGDataProviderRef provider =
+            CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
+
+    // Preserve alpha transparency, if exists
+    bool alpha = image.channels() == 4;
+    CGBitmapInfo bitmapInfo = (alpha ? kCGImageAlphaLast : kCGImageAlphaNone) | kCGBitmapByteOrderDefault;
+
+    // Creating CGImage from cv::Mat
+    CGImageRef imageRef = CGImageCreate(image.cols,
+                                        image.rows,
+                                        8 * image.elemSize1(),
+                                        8 * image.elemSize(),
+                                        image.step.p[0],
+                                        colorSpace,
+                                        bitmapInfo,
+                                        provider,
+                                        NULL,
+                                        false,
+                                        kCGRenderingIntentDefault
+                                        );
+
+
+    // Getting UIImage from CGImage
+    UIImage *finalImage = [UIImage imageWithCGImage:imageRef];
+    CGImageRelease(imageRef);
+    CGDataProviderRelease(provider);
+    CGColorSpaceRelease(colorSpace);
+
+    return finalImage;
+}
+
+void UIImageToMatMJC(const UIImage* image,
+                         cv::Mat& m, bool alphaExist) {
+    CGColorSpaceRef colorSpace = CGImageGetColorSpace(image.CGImage);
+    CGFloat cols = CGImageGetWidth(image.CGImage), rows = CGImageGetHeight(image.CGImage);
+    CGContextRef contextRef;
+    CGBitmapInfo bitmapInfo = kCGImageAlphaPremultipliedLast;
+    if (CGColorSpaceGetModel(colorSpace) == kCGColorSpaceModelMonochrome)
+    {
+        m.create(rows, cols, CV_8UC1); // 8 bits per component, 1 channel
+        bitmapInfo = kCGImageAlphaNone;
+        if (!alphaExist)
+            bitmapInfo = kCGImageAlphaNone;
+        else
+            m = cv::Scalar(0);
+        contextRef = CGBitmapContextCreate(m.data, m.cols, m.rows, 8,
+                                           m.step[0], colorSpace,
+                                           bitmapInfo);
+    }
+    else
+    {
+        m.create(rows, cols, CV_8UC4); // 8 bits per component, 4 channels
+        if (!alphaExist)
+            bitmapInfo = kCGImageAlphaNoneSkipLast |
+                                kCGBitmapByteOrderDefault;
+        else
+            m = cv::Scalar(0);
+        contextRef = CGBitmapContextCreate(m.data, m.cols, m.rows, 8,
+                                           m.step[0], colorSpace,
+                                           bitmapInfo);
+    }
+    CGContextDrawImage(contextRef, CGRectMake(0, 0, cols, rows),
+                       image.CGImage);
+    CGContextRelease(contextRef);
+}
+
 
 - (void)processImage:(cv::Mat&)image
 {
+//    cv::Mat backup = image.clone();
+//    cv::flip(image,image,-1);
+    
     if(isCapturing == YES)
     {
+        cout << "(isCapturing == YES) if" << endl;
         //NSLog(@"image processing");
         float lowPart = image.at<float>(0,0);  //modify opencv library, timestamp was stored at index 0,0
         float highPart = image.at<float>(0,1);
@@ -392,8 +480,12 @@ Matrix3d pnp_R;
         double* time_now_decode = (double*)Group;
         double time_stamp = *time_now_decode;
         
+        cout << counter << ": " << time_stamp << ", " << image.rows << "x" << image.cols << endl;
+        counter++;
+        
         if(lateast_imu_time <= 0)
         {
+            cout << "(lateast_imu_time <= 0) if" << endl;
             cv::flip(image,image,-1);
             return;
         }
@@ -405,6 +497,7 @@ Matrix3d pnp_R;
         cv::Mat input_frame;
         if(start_playback)
         {
+            cout << "start_playback if" << endl;
             //TS(readImg);
             bool still_play;
             still_play = [self readImageTime:imageDataReadIndex];
@@ -415,8 +508,8 @@ Matrix3d pnp_R;
 #ifdef DATA_EXPORT
             [self tapSaveImageToIphone:imgData.image];
 #endif
-            UIImageToMat(imgData.image,image);
-            UIImageToMat(imgData.image,input_frame);
+            UIImageToMatMJC(imgData.image,image);
+            UIImageToMatMJC(imgData.image,input_frame);
             img_msg->header = imgData.header;
             //TE(readImg);
 #ifdef DATA_EXPORT
@@ -425,20 +518,25 @@ Matrix3d pnp_R;
         }
         else
         {
+            cout << "start_playback else" << endl;
             input_frame = image;
         }
         
         if(start_record)
         {
+            cout << "start_record if" << endl;
             imgData.header = img_msg->header;
-            imgData.image = MatToUIImage(image);
+            imgData.image = MatToUIImageMJC(image);
             imgDataBuf.push(imgData);
             return;
         }
         else
         {
-            if(!imgDataBuf.empty())
+            cout << "start_record else" << endl;
+            if(!imgDataBuf.empty()){
+                cout << "!imgDataBuf.empty() if" << endl;
                 return;
+            }
         }
         
         prevTime = mach_absolute_time();
@@ -477,6 +575,8 @@ Matrix3d pnp_R;
         //image msg buf
         if(featuretracker.img_cnt==0)
         {
+            cout << "featuretracker.img_cnt==0 if" << endl;
+            
             img_msg->point_clouds = featuretracker.image_msg;
             //img_msg callback
             m_buf.lock();
@@ -486,13 +586,25 @@ Matrix3d pnp_R;
             con.notify_one();
             if(imageCacheEnabled)
             {
+                cout << "imageCacheEnabled 1 if" << endl;
+
                 image_data_cache.header = img_msg->header;
-                image_data_cache.image = MatToUIImage(image);
+                image_data_cache.image = MatToUIImageMJC(image);
+                CGFloat heightInPoints = image_data_cache.image.size.height;
+                CGFloat heightInPixels = heightInPoints * image_data_cache.image.scale;
+
+                CGFloat widthInPoints = image_data_cache.image.size.width;
+                CGFloat widthInPixels = widthInPoints * image_data_cache.image.scale;
+                cout << "    MJC2 " << image.rows << "x" << image.cols << " " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << ", " << widthInPoints << "x" << heightInPoints << ", " << widthInPixels << "x" << heightInPixels << ", header: " << image_data_cache.header << endl;
+                cout << "kCGImageAlphaLast: " << kCGImageAlphaLast << ", kCGImageAlphaNone: " << kCGImageAlphaNone << ", kCGBitmapByteOrderDefault:" << kCGBitmapByteOrderDefault <<
+                ", kCGImageAlphaNoneSkipLast: " << kCGImageAlphaNoneSkipLast << endl;
                 image_pool.push(image_data_cache);
             }
             
             if(LOOP_CLOSURE)
             {
+                cout << "LOOP_CLOSURE if" << endl;
+                
                 m_image_buf_loop.lock();
                 cv::Mat loop_image = gray.clone();
                 image_buf_loop.push(make_pair(loop_image, img_msg->header));
@@ -510,9 +622,12 @@ Matrix3d pnp_R;
         TS(visualize);
         if(imageCacheEnabled)
         {
+            cout << "imageCacheEnabled 2 if" << endl;
             //use aligned vins and image
             if(!vins_pool.empty() && !image_pool.empty())
             {
+                cout << "(!vins_pool.empty() && !image_pool.empty()) if" << endl;
+                
                 while(vins_pool.size() > 1)
                 {
                     vins_pool.pop();
@@ -523,53 +638,70 @@ Matrix3d pnp_R;
                 }
                 if(!vins_pool.empty() && !image_pool.empty())
                 {
+                    cout << "(!vins_pool.empty() && !image_pool.empty()) if" << endl;
+                    
                     lateast_image = image_pool.front().image;
                     lateast_P = vins_pool.front().P;
                     lateast_R = vins_pool.front().R;
-                    UIImageToMat(lateast_image, image);
+                    //cout << "lateast_image "
+                    UIImageToMatMJC(lateast_image, image);
                 }
             }
             else if(!image_pool.empty())
             {
-                if(image_pool.size() > 10)
+                cout << "(!vins_pool.empty() && !image_pool.empty()) else" << endl;
+                cout << "!image_pool.empty() if" << endl;
+                if(image_pool.size() > 10){
+                    cout << "image_pool.size() > 10 if" << endl;
                     image_pool.pop();
+                }
             }
         }
         if(USE_PNP)
         {
+            cout << "USE_PNP if" << endl;
             lateast_P = pnp_P.cast<float>();
             lateast_R = pnp_R.cast<float>();
         }
         if(ui_main || start_show == false || vins.solver_flag != VINS::NON_LINEAR)  //show image and AR
         {
+            cout << "(ui_main || start_show == false || vins.solver_flag != VINS::NON_LINEAR) if" << endl;
             cv::Mat tmp2;
             if(vins.solver_flag == VINS::NON_LINEAR && start_show)
             {
+                cout << "(vins.solver_flag == VINS::NON_LINEAR && start_show) if" << endl;
                 vins.drawresult.startInit = true;
                 vins.drawresult.drawAR(vins.imageAI, vins.correct_point_cloud, lateast_P, lateast_R);
                 
                 cv::Mat mask;
                 cv::Mat imageAI = vins.imageAI;
-                if(!imageAI.empty())
+                if(!imageAI.empty()){
+                    cout << "!imageAI.empty() if" << endl;
                     cv::cvtColor(imageAI, mask, CV_RGB2GRAY);
+                }
             }
             if(DEBUG_MODE)
             {
+                cout << "DEBUG_MODE if" << endl;
                 cv::flip(lateast_equa, image, -1);
             }
             else
             {
+                cout << "DEBUG_MODE else" << endl;
                 cv::flip(image,tmp2,-1);
                 image = tmp2;
                 if(vins.solver_flag != VINS::NON_LINEAR || !start_show){
+                    cout << "(vins.solver_flag != VINS::NON_LINEAR || !start_show) if" << endl;
 //                    cv::cvtColor(image, image, CV_RGBA2BGR);
                 }
             }     
         }
         else //show VINS
         {
+            cout << "(ui_main || start_show == false || vins.solver_flag != VINS::NON_LINEAR) else" << endl;
             if(vins.solver_flag == VINS::NON_LINEAR)
             {
+                cout << "(vins.solver_flag == VINS::NON_LINEAR) if" << endl;
                 vins.drawresult.pose.clear();
                 vins.drawresult.pose = keyframe_database.refine_path;
                 vins.drawresult.segment_indexs = keyframe_database.segment_indexs;
@@ -578,6 +710,7 @@ Matrix3d pnp_R;
             cv::Mat tmp2 = vins.image_show;
             
             cv::Mat down_origin_image;
+            cout << "MJC " << image.rows << "x" << image.cols << endl;
             cv::resize(image.t(), down_origin_image, cv::Size(200, 150));
             cv::cvtColor(down_origin_image, down_origin_image, CV_BGRA2RGB);
             cv::flip(down_origin_image,down_origin_image,0);
@@ -588,12 +721,15 @@ Matrix3d pnp_R;
             down_origin_image.copyTo(imageROI, mask);
             
             cv::flip(image,tmp2,1);
-            if (isNeedRotation)
+            if (isNeedRotation){
+                cout << "(isNeedRotation) if" << endl;
                 image = tmp2.t();
+            }
         }
         
         TE(visualize);
     } else {
+        cout << "(isCapturing == YES) else" << endl;
         // Not capturing, means not started yet
         cv::flip(image,image,-1);
         //BOOL isNeedRotation = image.size() != frameSize;
@@ -603,6 +739,8 @@ Matrix3d pnp_R;
 
     // CvVideoCamera preview path uses CoreGraphics and expects 32bpp when byte-order flags are set.
     // cout << "MJC1 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
+    
+//    backup.copyTo(image);
 }
 
 
