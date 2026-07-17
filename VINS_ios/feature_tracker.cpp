@@ -51,29 +51,7 @@ void FeatureTracker::addPoints()
 
 void FeatureTracker::setMask()
 {
-    // goodFeaturesToTrack requires mask to be CV_8UC1 and exactly same size as input image.
-    if (forw_img.empty())
-        return;
-
-    bool needs_recreate = mask.empty() || mask.type() != CV_8UC1 || mask.size() != forw_img.size();
-    if (needs_recreate)
-    {
-        if (mask.empty())
-        {
-            printf("[FeatureTracker] Recreating mask: old=EMPTY new=%dx%d type=CV_8UC1 image=%dx%d imageType=%d\n",
-                   forw_img.cols, forw_img.rows, forw_img.cols, forw_img.rows, forw_img.type());
-        }
-        else
-        {
-            printf("[FeatureTracker] Recreating mask: old=%dx%d type=%d new=%dx%d type=CV_8UC1 image=%dx%d imageType=%d\n",
-                   mask.cols, mask.rows, mask.type(),
-                   forw_img.cols, forw_img.rows,
-                   forw_img.cols, forw_img.rows, forw_img.type());
-        }
-        mask = cv::Mat(forw_img.size(), CV_8UC1, cv::Scalar(255));
-    }
-    else
-        mask.setTo(255);
+    mask.setTo(255);
     
     // prefer to keep features that are tracked for long time
     

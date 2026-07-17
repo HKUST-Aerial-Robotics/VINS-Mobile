@@ -77,7 +77,7 @@ bool box_in_AR = false;
 bool box_in_trajectory = false;
 
 // Debug aid: keep camera preview visible even before VINS initialization finishes.
-bool force_camera_preview = true;
+bool force_camera_preview = false;
 
 // If initialized finished, start show is true
 bool start_show = false;
@@ -377,9 +377,7 @@ Matrix3d pnp_R;
 {
     if(isCapturing == YES)
     {
-//        NSLog(@"NSLog image processing");
-//        cout << "cout image processing " << image.rows << "x" << image.cols << ", dims: " << image.dims
-//        <<", type: " << image.type() << ", depth: " << image.depth() << ", channels: " << image.channels() << endl;
+        //NSLog(@"image processing");
         float lowPart = image.at<float>(0,0);  //modify opencv library, timestamp was stored at index 0,0
         float highPart = image.at<float>(0,1);
         //image.at<float>(0,0) = image.at<float>(1,0);
@@ -396,10 +394,7 @@ Matrix3d pnp_R;
         
         if(lateast_imu_time <= 0)
         {
-            cv::cvtColor(image, image, CV_BGRA2RGB);
             cv::flip(image,image,-1);
-            cout << "MJC2 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
-            cv::cvtColor(image, image, CV_BGR2BGRA);
             return;
         }
         //img_msg->header = lateast_imu_time;
@@ -414,15 +409,12 @@ Matrix3d pnp_R;
             bool still_play;
             still_play = [self readImageTime:imageDataReadIndex];
             [self readImage:imageDataReadIndex];
-            if(!still_play){
-                cout << "MJC3 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
+            if(!still_play)
                 return;
-            }
             imageDataReadIndex++;
 #ifdef DATA_EXPORT
             [self tapSaveImageToIphone:imgData.image];
 #endif
-            cout << "MJC6 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
             UIImageToMat(imgData.image,image);
             UIImageToMat(imgData.image,input_frame);
             img_msg->header = imgData.header;
@@ -439,17 +431,14 @@ Matrix3d pnp_R;
         if(start_record)
         {
             imgData.header = img_msg->header;
-            cout << "MJC4 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
             imgData.image = MatToUIImage(image);
             imgDataBuf.push(imgData);
             return;
         }
         else
         {
-            if(!imgDataBuf.empty()){
-                cout << "MJC5 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
+            if(!imgDataBuf.empty())
                 return;
-            }
         }
         
         prevTime = mach_absolute_time();
@@ -498,8 +487,7 @@ Matrix3d pnp_R;
             if(imageCacheEnabled)
             {
                 image_data_cache.header = img_msg->header;
-                //cout << "type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
-                //image_data_cache.image = MatToUIImage(image);
+                image_data_cache.image = MatToUIImage(image);
                 image_pool.push(image_data_cache);
             }
             
@@ -557,17 +545,13 @@ Matrix3d pnp_R;
             cv::Mat tmp2;
             if(vins.solver_flag == VINS::NON_LINEAR && start_show)
             {
-                cv::Mat tmp;
                 vins.drawresult.startInit = true;
                 vins.drawresult.drawAR(vins.imageAI, vins.correct_point_cloud, lateast_P, lateast_R);
                 
-                cv::cvtColor(image, tmp, CV_RGBA2BGR);
                 cv::Mat mask;
                 cv::Mat imageAI = vins.imageAI;
                 if(!imageAI.empty())
                     cv::cvtColor(imageAI, mask, CV_RGB2GRAY);
-                imageAI.copyTo(tmp,mask);
-                cv::cvtColor(tmp, image, CV_BGRA2BGR);
             }
             if(DEBUG_MODE)
             {
@@ -577,9 +561,10 @@ Matrix3d pnp_R;
             {
                 cv::flip(image,tmp2,-1);
                 image = tmp2;
-                if(vins.solver_flag != VINS::NON_LINEAR || !start_show)
-                    cv::cvtColor(image, image, CV_RGBA2BGR);
-            }
+                if(vins.solver_flag != VINS::NON_LINEAR || !start_show){
+//                    cv::cvtColor(image, image, CV_RGBA2BGR);
+                }
+            }     
         }
         else //show VINS
         {
@@ -602,8 +587,6 @@ Matrix3d pnp_R;
             cv::cvtColor(down_origin_image, mask, CV_RGB2GRAY);
             down_origin_image.copyTo(imageROI, mask);
             
-            
-            cv::cvtColor(tmp2, image, CV_BGRA2BGR);
             cv::flip(image,tmp2,1);
             if (isNeedRotation)
                 image = tmp2.t();
@@ -612,7 +595,6 @@ Matrix3d pnp_R;
         TE(visualize);
     } else {
         // Not capturing, means not started yet
-        cv::cvtColor(image, image, CV_BGRA2RGB);
         cv::flip(image,image,-1);
         //BOOL isNeedRotation = image.size() != frameSize;
         //if (isNeedRotation)
@@ -620,13 +602,7 @@ Matrix3d pnp_R;
     }
 
     // CvVideoCamera preview path uses CoreGraphics and expects 32bpp when byte-order flags are set.
-    // Force outgoing frame to BGRA to avoid 24bpp (BGR) CGImageCreate warnings.
-    cout << "MJC1 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
-
-    if (image.channels() == 3)
-    {
-        cv::cvtColor(image, image, CV_BGR2BGRA);
-    }
+    // cout << "MJC1 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
 }
 
 
