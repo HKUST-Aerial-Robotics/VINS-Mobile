@@ -76,6 +76,9 @@ bool box_in_AR = false;
 
 bool box_in_trajectory = false;
 
+// Debug aid: keep camera preview visible even before VINS initialization finishes.
+bool force_camera_preview = true;
+
 // If initialized finished, start show is true
 bool start_show = false;
 
@@ -274,6 +277,13 @@ bool imageCacheEnabled = cameraMode && !USE_PNP;
     indicator.color = [UIColor darkGrayColor];
     [indicator startAnimating];
     [self.view addSubview:indicator];
+    if (force_camera_preview)
+    {
+        [_feature_label2 setHidden:YES];
+        [_feature_label3 setHidden:YES];
+        [indicator setHidden:YES];
+        [featureImageView setHidden:YES];
+    }
     
     /****************************************Init all the thread****************************************/
     _condition=[[NSCondition alloc] init];
@@ -367,9 +377,9 @@ Matrix3d pnp_R;
 {
     if(isCapturing == YES)
     {
-        NSLog(@"NSLog image processing");
-        cout << "cout image processing " << image.rows << "x" << image.cols << ", dims: " << image.dims
-            <<", type: " << image.type() << ", depth: " << image.depth() << ", channels: " << image.channels();
+//        NSLog(@"NSLog image processing");
+//        cout << "cout image processing " << image.rows << "x" << image.cols << ", dims: " << image.dims
+//        <<", type: " << image.type() << ", depth: " << image.depth() << ", channels: " << image.channels() << endl;
         float lowPart = image.at<float>(0,0);  //modify opencv library, timestamp was stored at index 0,0
         float highPart = image.at<float>(0,1);
         //image.at<float>(0,0) = image.at<float>(1,0);
@@ -388,6 +398,8 @@ Matrix3d pnp_R;
         {
             cv::cvtColor(image, image, CV_BGRA2RGB);
             cv::flip(image,image,-1);
+            cout << "MJC2 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
+            cv::cvtColor(image, image, CV_BGR2BGRA);
             return;
         }
         //img_msg->header = lateast_imu_time;
@@ -402,12 +414,15 @@ Matrix3d pnp_R;
             bool still_play;
             still_play = [self readImageTime:imageDataReadIndex];
             [self readImage:imageDataReadIndex];
-            if(!still_play)
+            if(!still_play){
+                cout << "MJC3 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
                 return;
+            }
             imageDataReadIndex++;
 #ifdef DATA_EXPORT
             [self tapSaveImageToIphone:imgData.image];
 #endif
+            cout << "MJC6 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
             UIImageToMat(imgData.image,image);
             UIImageToMat(imgData.image,input_frame);
             img_msg->header = imgData.header;
@@ -424,14 +439,17 @@ Matrix3d pnp_R;
         if(start_record)
         {
             imgData.header = img_msg->header;
+            cout << "MJC4 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
             imgData.image = MatToUIImage(image);
             imgDataBuf.push(imgData);
             return;
         }
         else
         {
-            if(!imgDataBuf.empty())
+            if(!imgDataBuf.empty()){
+                cout << "MJC5 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
                 return;
+            }
         }
         
         prevTime = mach_absolute_time();
@@ -480,7 +498,8 @@ Matrix3d pnp_R;
             if(imageCacheEnabled)
             {
                 image_data_cache.header = img_msg->header;
-                image_data_cache.image = MatToUIImage(image);
+                //cout << "type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
+                //image_data_cache.image = MatToUIImage(image);
                 image_pool.push(image_data_cache);
             }
             
@@ -598,6 +617,15 @@ Matrix3d pnp_R;
         //BOOL isNeedRotation = image.size() != frameSize;
         //if (isNeedRotation)
         //    image = image.t();
+    }
+
+    // CvVideoCamera preview path uses CoreGraphics and expects 32bpp when byte-order flags are set.
+    // Force outgoing frame to BGRA to avoid 24bpp (BGR) CGImageCreate warnings.
+    cout << "MJC1 type: " << image.type() << ", channels: " << image.channels() << ", depth: " << image.depth() << endl;
+
+    if (image.channels() == 3)
+    {
+        cv::cvtColor(image, image, CV_BGR2BGRA);
     }
 }
 
@@ -1221,10 +1249,13 @@ vector<IMU_MSG> gyro_buf;  // for Interpolation
         stringView = [NSString stringWithFormat:@"Initializing: %d%%", vins.initProgress];
         [_feature_label2 setText:stringView];
         
-        [_feature_label2 setHidden:NO];
-        [_feature_label3 setHidden:NO];
-        [indicator setHidden:NO];
-        [featureImageView setHidden:NO];
+        if (!force_camera_preview)
+        {
+            [_feature_label2 setHidden:NO];
+            [_feature_label3 setHidden:NO];
+            [indicator setHidden:NO];
+            [featureImageView setHidden:NO];
+        }
     }
     else
     {
