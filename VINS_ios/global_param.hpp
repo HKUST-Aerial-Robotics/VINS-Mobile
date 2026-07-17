@@ -25,9 +25,10 @@ enum DeviceType
 // RIC_YPR=(-2.031, -6.447, -169.227)
 // RIC_YPR=(1.203, -7.616, -169.068)
 // RIC_YPR=(-0.758, -8.325, -169.167)
-#define RIC_y ((double)-0.758)
-#define RIC_p ((double)-8.325)
-#define RIC_r ((double)-169.167)
+// RIC_YPR=(1.198, -5.853, -170.326)
+#define RIC_y ((double)1.198)
+#define RIC_p ((double)-5.853)
+#define RIC_r ((double)-170.326)
 #define MIN_LOOP_NUM 22
 #define LOOP_FREQ 3
 #define WINDOW_SIZE 10
@@ -46,7 +47,7 @@ enum DeviceType
 // Temporary calibration mode for camera-IMU extrinsics.
 // Set ENABLE_EXTRINSIC_CALIBRATION to true to optimize para_Ex_Pose online.
 // Use the two toggles below to optimize translation and rotation separately.
-#define ENABLE_EXTRINSIC_CALIBRATION true
+#define ENABLE_EXTRINSIC_CALIBRATION false
 #define CALIBRATE_EXTRINSIC_TRANSLATION true
 #define CALIBRATE_EXTRINSIC_ROTATION true
 #define EXTRINSIC_CALIB_LOG_EVERY_N_SOLVES 10

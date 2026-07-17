@@ -507,6 +507,8 @@ void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_nu
                     fail_times = 0;
                     printf("Initialization finish---------------------------------------------------!\n");
                     solver_flag = NON_LINEAR;
+                    // Keep runtime extrinsics fixed in NON_LINEAR mode.
+                    setExtrinsic();
                     slideWindow();
                     f_manager.removeFailures();
                     update_loop_correction();
@@ -553,6 +555,13 @@ void VINS::processImage(map<int, Vector3d> &image_msg, double header, int buf_nu
 
 void VINS::solve_ceres(int buf_num)
 {
+    bool allow_extrinsic_calib = ENABLE_EXTRINSIC_CALIBRATION && (solver_flag == NON_LINEAR);
+    if (!allow_extrinsic_calib)
+    {
+        // Enforce fixed defaults once solver enters NON_LINEAR.
+        setExtrinsic();
+    }
+
     ceres::Problem problem;
     ceres::LossFunction *loss_function;
     
@@ -570,14 +579,14 @@ void VINS::solve_ceres(int buf_num)
             new ExtrinsicLocalParameterization(CALIBRATE_EXTRINSIC_TRANSLATION, CALIBRATE_EXTRINSIC_ROTATION);
         problem.AddParameterBlock(para_Ex_Pose[i], SIZE_POSE, local_parameterization);
 
-        if (!ENABLE_EXTRINSIC_CALIBRATION)
+        if (!allow_extrinsic_calib)
             problem.SetParameterBlockConstant(para_Ex_Pose[i]);
         else if (!CALIBRATE_EXTRINSIC_TRANSLATION && !CALIBRATE_EXTRINSIC_ROTATION)
             problem.SetParameterBlockConstant(para_Ex_Pose[i]);
     }
 
     static bool printed_extrinsic_calib_mode = false;
-    if (ENABLE_EXTRINSIC_CALIBRATION && !printed_extrinsic_calib_mode)
+    if (allow_extrinsic_calib && !printed_extrinsic_calib_mode)
     {
         printed_extrinsic_calib_mode = true;
          printf("[EX_CAL] extrinsic calibration mode ON (translation=%d rotation=%d)\n",
@@ -774,7 +783,7 @@ void VINS::solve_ceres(int buf_num)
     
     new2old();
 
-    if (ENABLE_EXTRINSIC_CALIBRATION)
+    if (allow_extrinsic_calib)
     {
         static int ex_cal_solve_count = 0;
         ex_cal_solve_count++;

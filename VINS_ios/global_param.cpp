@@ -141,9 +141,10 @@ bool setGlobalParam(DeviceType device)
             // TIC=(0.021857, 0.138471, 0.008501) 
             // TIC=(0.137622, 0.331454, -0.582089)
             // TIC=(0.180273, 0.348541, -0.467740)
-            TIC_X = 0.180273;
-            TIC_Y = 0.348541;
-            TIC_Z = -0.467740;
+            // TIC=(0.157694, 0.281995, -0.321626)
+            TIC_X = 0.157694;
+            TIC_Y = 0.281995;
+            TIC_Z = -0.321626;
             return true;
             break;
         case unDefine:
