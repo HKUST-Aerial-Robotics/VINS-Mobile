@@ -221,8 +221,8 @@ bool imageCacheEnabled = cameraMode && !USE_PNP;
     AVCaptureDevicePositionBack;
     
     self.videoCamera.defaultAVCaptureVideoOrientation = AVCaptureVideoOrientationPortrait;
-    self.videoCamera.defaultAVCaptureSessionPreset =
-    AVCaptureSessionPreset640x480;
+    self.videoCamera.defaultAVCaptureSessionPreset = AVCaptureSessionPreset640x480;
+    // could try AVCaptureSessionPreset1280x720
 #ifdef DATA_EXPORT
     self.videoCamera.defaultFPS = 1;
 #else
@@ -446,6 +446,11 @@ void UIImageToMatMJC(const UIImage* image,
     CGContextRelease(contextRef);
 }
 
+#define PRINTMATINFO(a) printMatInfo("PRINTMATINFO "#a, a)
+
+inline void printMatInfo(std::string name, cv::Mat& mat){
+    cout << name << ": " << (uint64_t)mat.data << " - " << mat.size() << ", width: " << mat.rows << ", height: " << mat.cols << ", " << mat.type() << ", " << mat.channels() << ", " << mat.depth() << endl;
+}
 
 - (void)processImage:(cv::Mat&)image
 {
@@ -472,7 +477,6 @@ void UIImageToMatMJC(const UIImage* image,
         if(lateast_imu_time <= 0)
         {
             //cv::cvtColor(image, image, CV_BGRA2RGB);
-            cout << "FLIP1" << endl;
             cv::flip(image,image,-1);
             return;
         }
@@ -638,12 +642,10 @@ void UIImageToMatMJC(const UIImage* image,
             }
             if(DEBUG_MODE)
             {
-                cout << "FLIP2" << endl;
                 cv::flip(lateast_equa, image, -1);
             }
             else
             {
-                cout << "FLIP3" << endl;
                 cv::flip(image,tmp2,-1);
                 tmp2.copyTo(image);
                 if(vins.solver_flag != VINS::NON_LINEAR || !start_show){
@@ -663,10 +665,8 @@ void UIImageToMatMJC(const UIImage* image,
             cv::Mat tmp2 = vins.image_show;
             
             cv::Mat down_origin_image;
-            cout << "TRANSPOSE1" << endl;
             cv::resize(image.t(), down_origin_image, cv::Size(200, 150));
             cv::cvtColor(down_origin_image, down_origin_image, CV_BGRA2RGB);
-            cout << "FLIP4" << endl;
             cv::flip(down_origin_image,down_origin_image,0);
             cv::Mat imageROI;
             imageROI = tmp2(cv::Rect(10,COL - down_origin_image.rows- 10, down_origin_image.cols,down_origin_image.rows));
@@ -674,18 +674,18 @@ void UIImageToMatMJC(const UIImage* image,
             cv::cvtColor(down_origin_image, mask, CV_RGB2GRAY);
             down_origin_image.copyTo(imageROI, mask);
             
-            cout << "FLIP5" << endl;
-            cv::flip(image,tmp2,1);
+            cv::cvtColor(tmp2, tmp2, CV_RGB2BGRA);
+            cv::flip(tmp2,tmp2,1);
             if (isNeedRotation){
-                cout << "TRANSPOSE2" << endl;
                 cv::transpose(tmp2, image);
+            } else {
+                tmp2.copyTo(image);
             }
         }
         
         TE(visualize);
     } else {
         // Not capturing, means not started yet
-        cout << "FLIP6" << endl;
         cv::flip(image,image,-1);
         //BOOL isNeedRotation = image.size() != frameSize;
         //if (isNeedRotation)

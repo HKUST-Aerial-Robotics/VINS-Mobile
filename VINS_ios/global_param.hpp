@@ -21,9 +21,13 @@ enum DeviceType
     unDefine
 };
 //extrinsic param
-#define RIC_y ((double)0.0)
-#define RIC_p ((double)0.0)
-#define RIC_r ((double)180.0)
+// RIC_YPR=(-1.408, -3.930, -171.871)
+// RIC_YPR=(-2.031, -6.447, -169.227)
+// RIC_YPR=(1.203, -7.616, -169.068)
+// RIC_YPR=(-0.758, -8.325, -169.167)
+#define RIC_y ((double)-0.758)
+#define RIC_p ((double)-8.325)
+#define RIC_r ((double)-169.167)
 #define MIN_LOOP_NUM 22
 #define LOOP_FREQ 3
 #define WINDOW_SIZE 10
@@ -38,6 +42,25 @@ enum DeviceType
 #define NUM_OF_F 1000
 #define NUM_OF_CAM 1
 #define DEBUG_MODE false
+
+// Temporary calibration mode for camera-IMU extrinsics.
+// Set ENABLE_EXTRINSIC_CALIBRATION to true to optimize para_Ex_Pose online.
+// Use the two toggles below to optimize translation and rotation separately.
+#define ENABLE_EXTRINSIC_CALIBRATION true
+#define CALIBRATE_EXTRINSIC_TRANSLATION true
+#define CALIBRATE_EXTRINSIC_ROTATION true
+#define EXTRINSIC_CALIB_LOG_EVERY_N_SOLVES 10
+
+// Dampen extrinsic optimizer increments in local parameterization.
+// 1.0 = default Ceres step, 0.1 = 10x smaller updates.
+#define EXTRINSIC_TRANSLATION_STEP_SCALE ((double)0.05)
+#define EXTRINSIC_ROTATION_STEP_SCALE ((double)0.05)
+
+// Optional hard cap on per-iteration increment magnitudes.
+// Set <= 0 to disable each cap.
+#define EXTRINSIC_TRANSLATION_MAX_STEP_M ((double)0.001)
+#define EXTRINSIC_ROTATION_MAX_STEP_RAD ((double)0.25 * C_PI / 180.0)
+
 #define C_PI 3.1415926
 
 #define GRAVITY ((double)9.805)

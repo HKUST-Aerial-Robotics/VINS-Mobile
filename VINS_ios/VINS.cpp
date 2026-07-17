@@ -10,6 +10,80 @@
 
 bool LOOP_CLOSURE = true;
 
+namespace {
+
+class ExtrinsicLocalParameterization : public ceres::LocalParameterization
+{
+public:
+    ExtrinsicLocalParameterization(bool optimize_translation, bool optimize_rotation)
+    : optimize_translation_(optimize_translation), optimize_rotation_(optimize_rotation) {}
+
+    virtual bool Plus(const double *x, const double *delta, double *x_plus_delta) const
+    {
+        Eigen::Map<const Eigen::Vector3d> p(x);
+        Eigen::Map<const Eigen::Quaterniond> q(x + 3);
+
+        Eigen::Vector3d dp = Eigen::Map<const Eigen::Vector3d>(delta);
+        Eigen::Vector3d dtheta = Eigen::Map<const Eigen::Vector3d>(delta + 3);
+
+        dp *= EXTRINSIC_TRANSLATION_STEP_SCALE;
+        dtheta *= EXTRINSIC_ROTATION_STEP_SCALE;
+
+        if (EXTRINSIC_TRANSLATION_MAX_STEP_M > 0.0)
+        {
+            double n = dp.norm();
+            if (n > EXTRINSIC_TRANSLATION_MAX_STEP_M)
+                dp *= (EXTRINSIC_TRANSLATION_MAX_STEP_M / n);
+        }
+
+        if (EXTRINSIC_ROTATION_MAX_STEP_RAD > 0.0)
+        {
+            double n = dtheta.norm();
+            if (n > EXTRINSIC_ROTATION_MAX_STEP_RAD)
+                dtheta *= (EXTRINSIC_ROTATION_MAX_STEP_RAD / n);
+        }
+
+        Eigen::Map<Eigen::Vector3d> p_plus(x_plus_delta);
+        Eigen::Map<Eigen::Quaterniond> q_plus(x_plus_delta + 3);
+
+        if (optimize_translation_)
+            p_plus = p + dp;
+        else
+            p_plus = p;
+
+        if (optimize_rotation_)
+        {
+            Eigen::Quaterniond dq = Utility::deltaQ(dtheta);
+            q_plus = (q * dq).normalized();
+        }
+        else
+            q_plus = q;
+
+        return true;
+    }
+
+    virtual bool ComputeJacobian(const double *x, double *jacobian) const
+    {
+        (void)x;
+        Eigen::Map<Eigen::Matrix<double, 7, 6, Eigen::RowMajor>> j(jacobian);
+        j.setZero();
+        if (optimize_translation_)
+            j.block<3, 3>(0, 0).setIdentity();
+        if (optimize_rotation_)
+            j.block<3, 3>(3, 3).setIdentity();
+        return true;
+    }
+
+    virtual int GlobalSize() const { return 7; }
+    virtual int LocalSize() const { return 6; }
+
+private:
+    bool optimize_translation_;
+    bool optimize_rotation_;
+};
+
+} // namespace
+
 VINS::VINS()
 :f_manager{Rs},fail_times{0},
 failure_hand{false},
@@ -492,9 +566,28 @@ void VINS::solve_ceres(int buf_num)
     
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
-        ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
+        ceres::LocalParameterization *local_parameterization =
+            new ExtrinsicLocalParameterization(CALIBRATE_EXTRINSIC_TRANSLATION, CALIBRATE_EXTRINSIC_ROTATION);
         problem.AddParameterBlock(para_Ex_Pose[i], SIZE_POSE, local_parameterization);
-        problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+
+        if (!ENABLE_EXTRINSIC_CALIBRATION)
+            problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+        else if (!CALIBRATE_EXTRINSIC_TRANSLATION && !CALIBRATE_EXTRINSIC_ROTATION)
+            problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+    }
+
+    static bool printed_extrinsic_calib_mode = false;
+    if (ENABLE_EXTRINSIC_CALIBRATION && !printed_extrinsic_calib_mode)
+    {
+        printed_extrinsic_calib_mode = true;
+         printf("[EX_CAL] extrinsic calibration mode ON (translation=%d rotation=%d)\n",
+               CALIBRATE_EXTRINSIC_TRANSLATION,
+               CALIBRATE_EXTRINSIC_ROTATION);
+         printf("[EX_CAL] step scales: trans=%.3f rot=%.3f, max step: trans=%.6fm rot=%.6frad\n",
+             EXTRINSIC_TRANSLATION_STEP_SCALE,
+             EXTRINSIC_ROTATION_STEP_SCALE,
+             EXTRINSIC_TRANSLATION_MAX_STEP_M,
+             EXTRINSIC_ROTATION_MAX_STEP_RAD);
     }
     
     for (int i = 0; i < NUM_OF_F; i++)
@@ -680,6 +773,23 @@ void VINS::solve_ceres(int buf_num)
     }
     
     new2old();
+
+    if (ENABLE_EXTRINSIC_CALIBRATION)
+    {
+        static int ex_cal_solve_count = 0;
+        ex_cal_solve_count++;
+        int log_every = EXTRINSIC_CALIB_LOG_EVERY_N_SOLVES;
+        if (log_every <= 0)
+            log_every = 1;
+        if (ex_cal_solve_count % log_every == 0)
+        {
+            Vector3d ypr = Utility::R2ypr(ric);
+            printf("[EX_CAL] solve=%d TIC=(%.6f, %.6f, %.6f) RIC_YPR=(%.3f, %.3f, %.3f)\n",
+                   ex_cal_solve_count,
+                   tic.x(), tic.y(), tic.z(),
+                   ypr.x(), ypr.y(), ypr.z());
+        }
+    }
     
     vector<ceres::ResidualBlockId> residual_set;
     problem.GetResidualBlocks(&residual_set);
